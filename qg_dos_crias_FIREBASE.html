@@ -1,0 +1,2236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QG DOS CRIAS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs, deleteDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCFE_HiMHeagh1dRE0MzJDYADGvd9ky5kY",
+  authDomain: "dashboard-lucro.firebaseapp.com",
+  projectId: "dashboard-lucro",
+  storageBucket: "dashboard-lucro.firebasestorage.app",
+  messagingSenderId: "804073965332",
+  appId: "1:804073965332:web:6937a266a5da3b569b2401"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+// ── Expose Firebase helpers to global scope ──
+window._fb = { db, doc, getDoc, setDoc, collection, getDocs, deleteDoc, onSnapshot, updateDoc };
+window._fbReady = true;
+window.dispatchEvent(new Event('fbready'));
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#07090c;--bg2:#0b0e14;--surface:#10141f;--surface2:#151b2a;--surface3:#1a2236;
+  --border:#1e2a40;--border2:#283a58;
+  --text:#e2ecf8;--text2:#7a8faf;--text3:#3e5070;
+  --green:#00e87a;--green2:#00b85f;--green-bg:rgba(0,232,122,.08);
+  --red:#ff3b3b;--red2:#c42b2b;--red-bg:rgba(255,59,59,.08);
+  --gold:#ffc840;--gold2:#ffdc80;--gold-bg:rgba(255,200,64,.09);
+  --blue:#4a9dff;--blue2:#80bcff;--blue-bg:rgba(74,157,255,.09);
+  --accent:#ff6b00;--accent2:#ff9240;--accent-bg:rgba(255,107,0,.1);
+  --r:12px;--rs:7px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow-x:hidden}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 100% 50% at 50% -10%,rgba(255,107,0,.07) 0%,transparent 60%),radial-gradient(ellipse 70% 40% at 90% 90%,rgba(74,157,255,.04) 0%,transparent 60%);pointer-events:none;z-index:0}
+.page{position:relative;z-index:1}
+
+
+/* ══ META CARD ══ */
+.meta-card{position:relative}
+.meta-top{display:flex;justify-content:space-between;align-items:flex-start}
+.meta-edit-btn{background:none;border:1px solid var(--border);color:var(--text3);width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:.8rem;transition:all .15s;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.meta-edit-btn:hover{border-color:var(--gold);color:var(--gold)}
+.meta-bar-wrap{height:6px;background:var(--border);border-radius:3px;margin:10px 0 5px;overflow:hidden}
+.meta-bar{height:6px;border-radius:3px;transition:width .6s cubic-bezier(.4,0,.2,1);background:linear-gradient(90deg,var(--gold2),var(--green))}
+.meta-bar.full{background:linear-gradient(90deg,var(--green),#00ff99)}
+.meta-labels{display:flex;justify-content:space-between;font-size:.68rem;font-family:'Rajdhani','IBM Plex Mono',monospace;color:var(--text3)}
+/* ══ EDIT MODAL ══ */
+.btn-edit{background:none;border:none;color:var(--text3);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:.82rem;transition:all .15s}
+.btn-edit:hover{color:var(--blue2);background:var(--blue-bg)}
+
+
+/* ══ EXTENSÕES ══ */
+.ext-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:8px}
+.ext-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;transition:border-color .2s,transform .15s;position:relative;overflow:hidden}
+.ext-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.ext-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.ext-card.cat-automacao::before{background:var(--blue)}
+.ext-card.cat-analise::before{background:var(--green)}
+.ext-card.cat-integracao::before{background:var(--gold)}
+.ext-card.cat-seguranca::before{background:var(--red)}
+.ext-card.cat-relatorio::before{background:var(--accent)}
+.ext-card.cat-outro::before{background:var(--text2)}
+.ext-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
+.ext-icon{width:44px;height:44px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.ext-title{flex:1}
+.ext-title .en{font-weight:700;font-size:.95rem;line-height:1.2}
+.ext-title .ev{font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.65rem;color:var(--text3);margin-top:2px;letter-spacing:1px}
+.ext-cat-tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:.6rem;letter-spacing:1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;margin-bottom:8px}
+.ext-cat-tag.cat-automacao{background:var(--blue-bg);color:var(--blue2);border:1px solid rgba(74,157,255,.2)}
+.ext-cat-tag.cat-analise{background:var(--green-bg);color:var(--green);border:1px solid rgba(0,232,122,.2)}
+.ext-cat-tag.cat-integracao{background:var(--gold-bg);color:var(--gold2);border:1px solid rgba(255,200,64,.2)}
+.ext-cat-tag.cat-seguranca{background:var(--red-bg);color:var(--red);border:1px solid rgba(255,59,59,.2)}
+.ext-cat-tag.cat-relatorio{background:var(--accent-bg);color:var(--accent2);border:1px solid rgba(255,107,0,.2)}
+.ext-cat-tag.cat-outro{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.ext-desc{font-size:.78rem;color:var(--text2);line-height:1.5;margin-bottom:12px;min-height:36px}
+.ext-footer{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border);padding-top:10px;margin-top:4px}
+.ext-date{font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.65rem;color:var(--text3)}
+.ext-actions{display:flex;gap:6px}
+.ext-link-btn{background:var(--blue-bg);border:1px solid rgba(74,157,255,.25);color:var(--blue2);padding:4px 10px;border-radius:var(--rs);cursor:pointer;font-size:.7rem;font-family:'IBM Plex Sans',sans-serif;text-decoration:none;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.ext-link-btn:hover{background:var(--blue);color:#fff}
+.ext-add-card{background:var(--surface);border:2px dashed var(--border);border-radius:var(--r);padding:24px}
+.ext-add-card h3{font-size:.95rem;font-weight:700;color:var(--accent2);margin-bottom:18px}
+.ext-empty{text-align:center;padding:52px;color:var(--text3)}
+.ext-empty .ei{font-size:2.5rem;margin-bottom:12px}
+.ext-empty .et{font-size:.85rem;font-family:'IBM Plex Sans',sans-serif}
+
+
+/* ══ HIST NAV ══ */
+.hist-nav{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:20px;overflow:hidden}
+.hist-mode-btn{background:none;border:none;color:var(--text2);padding:5px 13px;cursor:pointer;font-size:.74rem;font-family:'IBM Plex Sans',sans-serif;transition:all .15s;white-space:nowrap}
+.hist-mode-btn.active{background:var(--accent);color:#fff;font-weight:600}
+.hist-mode-btn:hover:not(.active){color:var(--text);background:var(--surface3)}
+
+
+/* ══ AVATAR PHOTO ══ */
+.av-img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+.photo-upload-area{border:2px dashed var(--border2);border-radius:var(--r);padding:22px;text-align:center;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;margin-bottom:4px}
+.photo-upload-area:hover{border-color:var(--accent);background:var(--accent-bg)}
+.photo-upload-area input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.photo-preview-wrap{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+.photo-preview-av{width:72px;height:72px;border-radius:50%;overflow:hidden;border:2px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;font-family:'Bebas Neue',sans-serif}
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:8px;margin-top:10px}
+.photo-opt{width:60px;height:60px;border-radius:50%;object-fit:cover;cursor:pointer;border:3px solid transparent;transition:all .15s;display:block}
+.photo-opt:hover{border-color:var(--accent);transform:scale(1.08)}
+.photo-opt.selected{border-color:var(--green);box-shadow:0 0 0 2px var(--green)}
+
+
+/* ══ THEME PICKER ══ */
+.theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:10px;margin-top:10px}
+.theme-opt{background:var(--surface2);border:2px solid var(--border);border-radius:var(--rs);padding:10px 6px;cursor:pointer;text-align:center;transition:all .2s;position:relative}
+.theme-opt:hover{border-color:var(--accent);transform:translateY(-2px)}
+.theme-opt.selected{border-color:var(--accent);background:var(--accent-bg)}
+.theme-opt.selected::after{content:'✓';position:absolute;top:4px;right:6px;font-size:.65rem;color:var(--accent)}
+.theme-opt .te{font-size:1.4rem;display:block;margin-bottom:4px}
+.theme-opt .tn{font-size:.65rem;color:var(--text2);font-family:'Rajdhani','IBM Plex Mono',monospace;letter-spacing:.5px;line-height:1.2}
+.theme-preview{display:flex;gap:4px;justify-content:center;margin-top:5px}
+.theme-preview .dot{width:8px;height:8px;border-radius:50%}
+
+
+/* ══ LOADING ══ */
+.spin-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);animation:spinpulse .8s ease-in-out infinite}
+@keyframes spinpulse{0%,100%{opacity:.2;transform:scale(.7)}50%{opacity:1;transform:scale(1)}}
+
+
+/* ══ PIX ══ */
+.pix-bank-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;transition:border-color .2s,transform .15s}
+.pix-bank-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.pix-bank-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--border)}
+.pix-bank-title{display:flex;align-items:center;gap:10px}
+.pix-bank-icon{font-size:1.4rem}
+.pix-bank-name{font-weight:700;font-size:.95rem}
+.pix-keys-list{padding:12px 18px 16px;display:flex;flex-direction:column;gap:8px}
+.pix-key-row{display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:9px 12px;transition:border-color .15s}
+.pix-key-row:hover{border-color:var(--border2)}
+.pix-key-val{font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.82rem;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pix-copy-btn{background:none;border:1px solid var(--border);color:var(--text3);border-radius:var(--rs);padding:4px 9px;cursor:pointer;font-size:.72rem;font-family:'IBM Plex Sans',sans-serif;white-space:nowrap;transition:all .15s;flex-shrink:0}
+.pix-copy-btn:hover{border-color:var(--green);color:var(--green)}
+.pix-copy-btn.copied{border-color:var(--green);color:var(--green);background:var(--green-bg)}
+.pix-copy-all-btn{display:flex;align-items:center;gap:6px;background:var(--green-bg);border:1px solid rgba(0,232,122,.25);color:var(--green);border-radius:var(--rs);padding:6px 13px;cursor:pointer;font-size:.75rem;font-family:'IBM Plex Sans',sans-serif;font-weight:600;transition:all .15s;white-space:nowrap}
+.pix-copy-all-btn:hover{background:var(--green);color:#000}
+.pix-bank-footer{padding:0 18px 14px;display:flex;justify-content:space-between;align-items:center}
+.pix-empty{text-align:center;padding:52px;color:var(--text3);grid-column:1/-1}
+.pix-empty .ei{font-size:2.5rem;margin-bottom:10px}
+.pix-empty .et{font-size:.82rem;font-family:'IBM Plex Sans',sans-serif}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--surface)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ══════════════════ LOGIN SCREEN ══════════════════ */
+#loginScreen{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+.login-logo{text-align:center;margin-bottom:40px}
+.login-logo .big{font-family:'Bebas Neue',sans-serif;font-size:4rem;letter-spacing:4px;background:linear-gradient(135deg,var(--accent),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+.login-logo .sub{font-family:'IBM Plex Mono',monospace;font-size:.7rem;letter-spacing:3px;color:var(--text3);text-transform:uppercase;margin-top:4px}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:32px;width:100%;max-width:380px}
+.login-box h2{font-size:1.1rem;font-weight:600;margin-bottom:6px}
+.login-box p{font-size:.8rem;color:var(--text2);margin-bottom:24px}
+/* user-list removed — login now uses form */
+.user-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;font-family:'Bebas Neue',sans-serif;flex-shrink:0}
+.user-info .uname{font-weight:600;font-size:.9rem}
+.user-info .urole{font-size:.68rem;color:var(--text3);font-family:'IBM Plex Mono',monospace;letter-spacing:.8px;text-transform:uppercase}
+.badge-admin{color:var(--gold);background:var(--gold-bg);border:1px solid rgba(255,200,64,.2);padding:2px 7px;border-radius:4px;font-size:.6rem;letter-spacing:1px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase}
+.badge-user{color:var(--blue);background:var(--blue-bg);border:1px solid rgba(74,157,255,.2);padding:2px 7px;border-radius:4px;font-size:.6rem;letter-spacing:1px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase}
+
+.login-divider{text-align:center;font-size:.7rem;color:var(--text3);margin:12px 0;position:relative}
+.login-divider::before,.login-divider::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:var(--border)}
+.login-divider::before{left:0}.login-divider::after{right:0}
+
+/* ══════════════════ HEADER ══════════════════ */
+.header{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;border-bottom:1px solid var(--border);background:rgba(7,9,12,.95);backdrop-filter:blur(16px);position:sticky;top:0;z-index:100}
+.header-brand{display:flex;align-items:center;gap:14px}
+.brand-text{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;letter-spacing:3px;background:linear-gradient(135deg,var(--accent),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+.header-nav{display:flex;gap:4px}
+.nav-btn{background:none;border:1px solid transparent;color:var(--text2);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:.78rem;font-family:'IBM Plex Sans',sans-serif;font-weight:500;transition:all .15s;white-space:nowrap}
+.nav-btn:hover{color:var(--text);border-color:var(--border)}
+.nav-btn.active{background:var(--accent-bg);border-color:var(--accent);color:var(--accent2)}
+.header-right{display:flex;align-items:center;gap:10px}
+.clock{font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--text3)}
+.profile-btn{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 12px 5px 5px;cursor:pointer;transition:all .15s}
+.profile-btn:hover{border-color:var(--accent)}
+.profile-btn .av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;font-family:'Bebas Neue',sans-serif}
+.profile-btn .pname{font-size:.78rem;font-weight:600}
+.logout-btn{background:none;border:1px solid var(--border);color:var(--text3);padding:6px 12px;border-radius:var(--rs);cursor:pointer;font-size:.72rem;transition:all .15s}
+.logout-btn:hover{border-color:var(--red);color:var(--red)}
+
+/* ══════════════════ TABS / VIEWS ══════════════════ */
+.view{display:none}.view.active{display:block}
+.main{max-width:1500px;margin:0 auto;padding:28px 32px 60px}
+
+/* ══════════════════ SECTION LABEL ══════════════════ */
+.slabel{font-family:'IBM Plex Mono',monospace;font-size:.6rem;letter-spacing:2.5px;color:var(--text3);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.slabel::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ══════════════════ SUMMARY CARDS ══════════════════ */
+.sum-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px}
+@media(max-width:900px){.sum-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.sum-grid{grid-template-columns:1fr}}
+.sc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:15px 14px 12px;position:relative;overflow:hidden;transition:border-color .2s,transform .15s;cursor:default}
+.sc:hover{border-color:var(--border2);transform:translateY(-1px)}
+.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:var(--r) var(--r) 0 0}
+.sc.cg::before{background:var(--green)}.sc.cb::before{background:var(--blue)}.sc.cr::before{background:var(--red)}.sc.co::before{background:var(--gold)}.sc.ca::before{background:var(--accent)}
+.sc .icon{font-size:1rem;margin-bottom:7px;opacity:.7}
+.sc .lbl{font-size:.6rem;letter-spacing:1.2px;text-transform:uppercase;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:5px}
+.sc .val{font-family:'IBM Plex Mono',monospace;font-size:1.1rem;font-weight:500;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc.cg .val{color:var(--green)}.sc.cb .val{color:var(--blue2)}.sc.cr .val{color:var(--red)}.sc.co .val{color:var(--gold2)}.sc.ca .val{color:var(--accent2)}
+.sc .sub{font-size:.62rem;color:var(--text3);margin-top:4px;font-family:'IBM Plex Mono',monospace}
+
+/* ══════════════════ FILTERS ══════════════════ */
+.filters{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:24px}
+.flbl{font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-right:4px}
+.fb{background:var(--surface);border:1px solid var(--border);color:var(--text2);padding:5px 13px;border-radius:20px;cursor:pointer;font-size:.74rem;font-family:'IBM Plex Sans',sans-serif;transition:all .15s;white-space:nowrap}
+.fb:hover{border-color:var(--accent);color:var(--accent2)}
+.fb.active{background:var(--accent-bg);border-color:var(--accent);color:var(--accent2);font-weight:600}
+
+/* ══════════════════ CHARTS ══════════════════ */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:24px}
+@media(max-width:1100px){.charts-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.charts-grid{grid-template-columns:1fr}}
+.cc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;transition:border-color .2s}
+.cc:hover{border-color:var(--border2)}
+.cc h3{font-family:'IBM Plex Mono',monospace;font-size:.6rem;letter-spacing:1.8px;color:var(--text3);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:7px}
+.cc h3 .dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
+.cc canvas{max-height:190px}
+.cc.wide2{grid-column:span 2}
+@media(max-width:1100px){.cc.wide2{grid-column:span 1}}
+
+/* ══════════════════ TWO COL ══════════════════ */
+.two-col{display:grid;grid-template-columns:380px 1fr;gap:14px;margin-bottom:24px}
+@media(max-width:1100px){.two-col{grid-template-columns:1fr}}
+
+/* ══════════════════ FORM ══════════════════ */
+.form-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;height:fit-content}
+.form-card h2{font-size:1rem;font-weight:700;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.form-card h2 span{color:var(--accent2)}
+.frow{margin-bottom:12px}
+.frow label{display:flex;align-items:center;gap:5px;font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;margin-bottom:4px}
+.frow label .lc{width:7px;height:7px;border-radius:2px;display:inline-block}
+.lc-b{background:var(--blue)}.lc-r{background:var(--red)}.lc-g{background:var(--green)}.lc-o{background:var(--gold)}
+.frow input,.frow select,.frow textarea{width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'IBM Plex Mono',monospace;font-size:.82rem;outline:none;transition:border-color .15s,box-shadow .15s;-webkit-appearance:none}
+.frow input:focus,.frow select:focus,.frow textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,107,0,.1)}
+.frow select option{background:var(--surface2)}
+.frow textarea{resize:vertical;min-height:52px}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+.prev-box{background:var(--bg2);border:1px solid var(--border);border-left:2px solid var(--green);border-radius:var(--rs);padding:11px 13px;margin:10px 0 6px;font-family:'IBM Plex Mono',monospace;font-size:.73rem}
+.prev-row{display:flex;justify-content:space-between;padding:2px 0;color:var(--text2)}
+.prev-row.hl{color:var(--green);font-weight:600;border-top:1px solid var(--border);margin-top:5px;padding-top:7px}
+.prev-row.neg{color:var(--red)}
+
+.btn-add{width:100%;background:linear-gradient(135deg,var(--accent),#cc5500);color:#fff;border:none;border-radius:var(--rs);padding:11px;font-size:.88rem;font-family:'IBM Plex Sans',sans-serif;font-weight:700;cursor:pointer;margin-top:8px;transition:opacity .15s,transform .1s,box-shadow .15s;box-shadow:0 4px 18px rgba(255,107,0,.25);letter-spacing:.3px}
+.btn-add:hover{opacity:.92;transform:translateY(-1px);box-shadow:0 6px 24px rgba(255,107,0,.35)}
+.btn-add:active{transform:translateY(0)}
+
+/* ══════════════════ TABLE ══════════════════ */
+.table-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.table-head-bar{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid var(--border)}
+.table-head-bar h2{font-size:1rem;font-weight:700}
+.tcnt{font-family:'IBM Plex Mono',monospace;font-size:.68rem;color:var(--text3);background:var(--surface2);border:1px solid var(--border);padding:3px 9px;border-radius:20px}
+.tw{overflow-x:auto;max-height:440px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+thead{position:sticky;top:0;background:var(--surface2);z-index:5}
+th{text-align:left;padding:10px 13px;font-size:.58rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-family:'IBM Plex Mono',monospace;white-space:nowrap;border-bottom:1px solid var(--border)}
+td{padding:9px 13px;border-bottom:1px solid rgba(30,42,64,.4);font-family:'IBM Plex Mono',monospace;white-space:nowrap;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.012)}
+.vg{color:var(--green)}.vb{color:var(--blue2)}.vr{color:var(--red)}.vo{color:var(--gold2)}.vm{color:var(--text2)}.vd{color:var(--text3);font-size:.72rem}
+.ptag{background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:2px 7px;font-size:.65rem;color:var(--text2)}
+.btn-del{background:none;border:none;color:var(--text3);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:.82rem;transition:all .15s}
+.btn-del:hover{color:var(--red);background:var(--red-bg)}
+.empty-td{text-align:center;padding:48px!important;color:var(--text3)}
+.empty-td .ei{font-size:2rem;margin-bottom:8px}
+.empty-td .et{font-size:.8rem;font-family:'IBM Plex Sans',sans-serif}
+
+/* ══════════════════ CYCLES (Day Summary) ══════════════════ */
+.day-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:24px}
+.day-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;transition:border-color .2s}
+.day-card:hover{border-color:var(--border2)}
+.day-card .dc-date{font-family:'IBM Plex Mono',monospace;font-size:.62rem;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin-bottom:8px}
+.day-card .dc-lucro{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;line-height:1;margin-bottom:6px}
+.day-card .dc-lucro.pos{color:var(--green)}.day-card .dc-lucro.neg{color:var(--red)}
+.day-card .dc-meta{display:flex;gap:12px;font-family:'IBM Plex Mono',monospace;font-size:.68rem;color:var(--text2)}
+.day-card .dc-meta span{display:flex;align-items:center;gap:4px}
+.day-card .dc-cycles{margin-top:10px;border-top:1px solid var(--border);padding-top:8px}
+.cycle-row{display:flex;justify-content:space-between;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--text2);padding:3px 0}
+.cycle-row .cr-plat{color:var(--text);font-size:.68rem}
+.cycle-row .cr-lucro{font-weight:600}
+.cycle-row .cr-lucro.pos{color:var(--green)}.cycle-row .cr-lucro.neg{color:var(--red)}
+
+/* ══════════════════ RANKING ══════════════════ */
+.ranking-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:24px}
+.rank-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px}
+.rank-card h2{font-size:1rem;font-weight:700;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.rank-list{display:flex;flex-direction:column;gap:8px}
+.rank-item{display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:12px 14px;transition:all .15s}
+.rank-item:hover{border-color:var(--border2)}
+.rank-pos{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;width:32px;text-align:center;flex-shrink:0}
+.rank-pos.p1{color:var(--gold)}.rank-pos.p2{color:#c0c0c0}.rank-pos.p3{color:#cd7f32}.rank-pos.pn{color:var(--text3)}
+.rank-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;font-family:'Bebas Neue',sans-serif;flex-shrink:0}
+.rank-info{flex:1}
+.rank-info .rname{font-weight:600;font-size:.9rem}
+.rank-info .rsub{font-size:.68rem;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-top:2px}
+.rank-val{font-family:'IBM Plex Mono',monospace;font-size:1rem;font-weight:600}
+.rank-val.pos{color:var(--green)}.rank-val.neg{color:var(--red)}
+.rank-bar-wrap{height:3px;background:var(--border);border-radius:2px;margin-top:6px;overflow:hidden}
+.rank-bar{height:3px;border-radius:2px;transition:width .6s ease;background:var(--green)}
+
+/* ══════════════════ PROFILE VIEW ══════════════════ */
+.profile-wrap{max-width:520px;margin:0 auto}
+.profile-hero{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:28px;text-align:center;margin-bottom:16px}
+.ph-av{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:700;font-family:'Bebas Neue',sans-serif;margin:0 auto 14px;border:2px solid var(--border2)}
+.ph-name{font-size:1.4rem;font-weight:700;margin-bottom:4px}
+.ph-role{font-family:'IBM Plex Mono',monospace;font-size:.68rem;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase}
+.profile-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.ps-item{text-align:center}
+.ps-val{font-family:'IBM Plex Mono',monospace;font-size:1rem;font-weight:500;color:var(--green)}
+.ps-lbl{font-size:.62rem;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-top:3px;letter-spacing:.8px;text-transform:uppercase}
+
+.profile-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px}
+.profile-form h3{font-size:.9rem;font-weight:700;margin-bottom:18px}
+.color-picker-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.color-opt{width:32px;height:32px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:#000}
+.color-opt.selected{border-color:var(--text);transform:scale(1.1)}
+.btn-save{background:var(--green2);color:#fff;border:none;border-radius:var(--rs);padding:10px 24px;font-size:.85rem;font-family:'IBM Plex Sans',sans-serif;font-weight:700;cursor:pointer;transition:opacity .15s,transform .1s}
+.btn-save:hover{opacity:.9;transform:translateY(-1px)}
+
+/* ══════════════════ ADMIN (Accounts) ══════════════════ */
+.admin-wrap{max-width:900px;margin:0 auto}
+.accounts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-bottom:24px}
+.acc-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;transition:all .2s}
+.acc-card:hover{border-color:var(--border2)}
+.acc-card-top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.acc-card-top .av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;font-family:'Bebas Neue',sans-serif}
+.acc-card-top .info .n{font-weight:700;font-size:.95rem}
+.acc-card-top .info .r{font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--text3);letter-spacing:.8px;text-transform:uppercase;margin-top:2px}
+.acc-stats{display:flex;gap:12px;font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--text2);border-top:1px solid var(--border);padding-top:10px}
+.acc-stats .as{display:flex;flex-direction:column;gap:2px}
+.acc-stats .as-val{font-size:.85rem;font-weight:500}
+.acc-stats .as-val.pos{color:var(--green)}.acc-stats .as-val.neu{color:var(--text)}
+.acc-stats .as-lbl{font-size:.6rem;color:var(--text3);letter-spacing:.8px;text-transform:uppercase}
+.acc-actions{display:flex;gap:6px;margin-top:10px}
+.btn-sm{background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:var(--rs);cursor:pointer;font-size:.72rem;font-family:'IBM Plex Sans',sans-serif;transition:all .15s}
+.btn-sm:hover{border-color:var(--blue);color:var(--blue2)}
+.btn-sm.danger:hover{border-color:var(--red);color:var(--red)}
+
+.new-acc-card{background:var(--surface);border:2px dashed var(--border);border-radius:var(--r);padding:22px}
+.new-acc-card h3{font-size:.9rem;font-weight:700;margin-bottom:16px;color:var(--accent2)}
+
+/* ══════════════════ MODAL ══════════════════ */
+.modal-overlay{position:fixed;inset:0;background:rgba(7,9,12,.85);backdrop-filter:blur(4px);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:28px;width:100%;max-width:420px;position:relative}
+.modal h2{font-size:1.1rem;font-weight:700;margin-bottom:6px}
+.modal p{font-size:.8rem;color:var(--text2);margin-bottom:22px}
+.modal-close{position:absolute;top:14px;right:14px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:1.2rem;transition:color .15s}
+.modal-close:hover{color:var(--red)}
+
+/* ══════════════════ TOAST ══════════════════ */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--green2);color:#fff;padding:10px 18px;border-radius:var(--rs);font-size:.82rem;font-weight:700;font-family:'IBM Plex Sans',sans-serif;opacity:0;transform:translateY(8px);transition:all .3s;pointer-events:none;z-index:999;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.err{background:var(--red2)}
+.toast.warn{background:#c07000}
+
+/* ══════════════════ MISC ══════════════════ */
+.formula-bar{background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:var(--rs);padding:12px 16px;margin-bottom:22px;font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--text2);display:flex;gap:22px;flex-wrap:wrap}
+.formula-bar strong{color:var(--gold2)}
+.fi{display:flex;flex-direction:column;gap:2px}
+.fi span:first-child{font-size:.58rem;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase}
+
+.month-summary-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:16px}
+.month-summary-card h3{font-size:.65rem;font-family:'IBM Plex Mono',monospace;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:14px}
+.month-rows{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.mr{display:flex;flex-direction:column;gap:3px}
+.mr .mv{font-family:'IBM Plex Mono',monospace;font-size:.95rem;font-weight:500}
+.mr .ml{font-size:.6rem;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.8px}
+
+@media(max-width:600px){
+  .header{padding:12px 16px}
+  .header-nav{display:none}
+  .main{padding:18px 16px 60px}
+  .brand-text{font-size:1.3rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════ LOGIN SCREEN ══════ -->
+<!-- LOADING SCREEN -->
+<div id="loadingScreen" style="position:fixed;inset:0;background:var(--bg);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:3.5rem;letter-spacing:4px;background:linear-gradient(135deg,#ff6b00,#ffc840);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">QG DOS CRIAS</div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <div class="spin-dot"></div>
+    <div class="spin-dot" style="animation-delay:.15s"></div>
+    <div class="spin-dot" style="animation-delay:.3s"></div>
+  </div>
+  <div style="font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.75rem;letter-spacing:2px;color:var(--text3);text-transform:uppercase" id="loadingMsg">Conectando ao Firebase...</div>
+</div>
+
+<div id="loginScreen">
+  <div class="login-logo">
+    <div class="big">QG DOS CRIAS</div>
+    <div class="sub">Sistema de Controle Financeiro</div>
+  </div>
+  <div class="login-box">
+    <h2>Entrar</h2>
+    <p>Acesso exclusivo para membros autorizados.</p>
+    <div class="frow" style="margin-bottom:14px">
+      <label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:5px">Usuário</label>
+      <input type="text" id="loginUser" placeholder="Seu nome de usuário..." autocomplete="username"
+        style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:10px 13px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.95rem;outline:none;transition:border-color .15s"
+        onkeydown="if(event.key==='Enter') document.getElementById('loginPass').focus()">
+    </div>
+    <div class="frow" style="margin-bottom:20px">
+      <label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:5px">Senha</label>
+      <div style="position:relative">
+        <input type="password" id="loginPass" placeholder="Sua senha..." autocomplete="current-password"
+          style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:10px 40px 10px 13px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.95rem;outline:none;transition:border-color .15s"
+          onkeydown="if(event.key==='Enter') doLogin()">
+        <button onclick="toggleLoginPass()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;font-size:.9rem;padding:2px">👁</button>
+      </div>
+    </div>
+    <div id="loginError" style="display:none;background:var(--red-bg);border:1px solid rgba(255,59,59,.3);border-radius:var(--rs);padding:9px 13px;font-size:.78rem;color:var(--red);margin-bottom:14px;font-family:'IBM Plex Sans',sans-serif"></div>
+    <button onclick="doLogin()" style="width:100%;background:linear-gradient(135deg,var(--accent),#cc5500);color:#fff;border:none;border-radius:var(--rs);padding:12px;font-size:.95rem;font-family:'IBM Plex Sans',sans-serif;font-weight:700;cursor:pointer;transition:opacity .15s,transform .1s;box-shadow:0 4px 18px rgba(255,107,0,.25);letter-spacing:.3px"
+      onmouseover="this.style.opacity='.9'" onmouseout="this.style.opacity='1'">
+      Entrar →
+    </button>
+    <div style="margin-top:16px;text-align:center;font-size:.72rem;color:var(--text3);font-family:'IBM Plex Mono',monospace">
+      Não tem acesso? Fale com o administrador.
+    </div>
+  </div>
+</div>
+
+<!-- ══════ APP ══════ -->
+<div class="page" id="appRoot" style="display:none">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-brand">
+      <div class="brand-text">QG DOS CRIAS</div>
+    </div>
+    <div class="header-nav">
+      <button class="nav-btn active" onclick="goView('dashboard',this)">📊 Dashboard</button>
+      <button class="nav-btn" onclick="goView('ranking',this)">🏆 Ranking</button>
+      <button class="nav-btn" id="adminNavBtn" onclick="goView('admin',this)" style="display:none">⚙️ Contas</button>
+      <button class="nav-btn" id="pixNavBtn" onclick="goView('pix',this)">💳 Chaves Pix</button>
+      <button class="nav-btn" id="extNavBtn" onclick="goView('extensoes',this)" style="display:none">🧩 Extensões</button>
+    </div>
+    <div class="header-right">
+      <div class="clock" id="clock">--:--</div>
+      <div class="profile-btn" onclick="goView('profile',document.querySelector('.nav-btn.active'))">
+        <div class="av" id="headerAv" style="background:#333"></div>
+        <span class="pname" id="headerName">—</span>
+      </div>
+      <button class="logout-btn" onclick="logout()">Sair</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD VIEW -->
+  <div id="view-dashboard" class="view active">
+    <div class="main">
+      <div class="formula-bar">
+        <div class="fi"><span>Retorno</span><span><strong>Saque + Baú</strong></span></div>
+        <div class="fi"><span>Lucro Ciclo</span><span><strong>(Saq + Baú) − Dep</strong></span></div>
+        <div class="fi"><span>Baú</span><span><strong>Lucro puro separado</strong></span></div>
+      </div>
+
+      <div class="slabel">Resumo Geral</div>
+      <div class="sum-grid">
+        <div class="sc cg"><div class="icon">📅</div><div class="lbl">Lucro do Mês</div><div class="val" id="v-lmes">R$ 0,00</div><div class="sub" id="v-lmes-sub">—</div></div>
+        <div class="sc cg"><div class="icon">☀️</div><div class="lbl">Lucro do Dia</div><div class="val" id="v-ldia">R$ 0,00</div><div class="sub" id="v-ldia-sub">—</div></div>
+        <div class="sc co meta-card" id="metaCard">
+          <div class="meta-top">
+            <div>
+              <div class="icon">🎯</div>
+              <div class="lbl">Meta do Mês</div>
+              <div class="val" id="v-meta-pct">0%</div>
+              <div class="sub" id="v-meta-sub">Meta: R$ 0,00</div>
+            </div>
+            <button class="meta-edit-btn" onclick="openMetaModal()" title="Editar meta">✏️</button>
+          </div>
+          <div class="meta-bar-wrap">
+            <div class="meta-bar" id="metaBar" style="width:0%"></div>
+          </div>
+          <div class="meta-labels">
+            <span id="v-meta-atual">R$ 0,00</span>
+            <span id="v-meta-goal">/ R$ 0,00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="filters">
+        <span class="flbl">Período:</span>
+        <button class="fb active" onclick="setFilter('ciclo',this)">Ciclo inteiro</button>
+        <button class="fb" onclick="setFilter('mes',this)">Este mês</button>
+        <button class="fb" onclick="setFilter('semana',this)">Esta semana</button>
+        <button class="fb" onclick="setFilter('dia',this)">Hoje</button>
+        <span class="flbl" style="margin-left:8px">Plataforma:</span>
+        <div id="platFilterWrap" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+
+      <!-- Charts -->
+      <!-- Form + Table -->
+      <div class="slabel">Registrar Operação</div>
+      <div class="two-col">
+        <div class="form-card">
+          <h2>Nova <span>Operação</span></h2>
+          <div class="fg2">
+            <div class="frow"><label>Data</label><input type="date" id="fData"></div>
+            <div class="frow"><label>Plataforma</label><input type="text" id="fPlat" placeholder="Nome da plataforma..." autocomplete="off" list="platList"><datalist id="platList"></datalist></div>
+          </div>
+          <div class="fg2">
+            <div class="frow"><label><span class="lc lc-b"></span>Depósito</label><input type="number" id="fDep" placeholder="0.00" min="0" step="0.01" oninput="prevCalc()"></div>
+            <div class="frow"><label><span class="lc lc-r"></span>Saque</label><input type="number" id="fSaq" placeholder="0.00" min="0" step="0.01" oninput="prevCalc()"></div>
+            <div class="frow"><label><span class="lc lc-o"></span>Baú</label><input type="number" id="fBau" placeholder="0.00" min="0" step="0.01" oninput="prevCalc()"></div>
+          </div>
+          <div class="prev-box">
+            <div class="prev-row"><span>Retorno (Saq+Baú)</span><span id="pRetorno">R$ 0,00</span></div>
+            <div class="prev-row"><span>Investido</span><span id="pDep">−R$ 0,00</span></div>
+            <div class="prev-row hl" id="pRow"><span>Lucro desta op.</span><span id="pLucro">R$ 0,00</span></div>
+          </div>
+          <div class="frow"><label>Observações</label><textarea id="fObs" placeholder="Notas opcionais..."></textarea></div>
+          <button class="btn-add" onclick="addEntry()">+ Registrar Operação</button>
+
+          <!-- Platform manager -->
+          <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+            <div class="slabel" style="font-size:.56rem;margin-bottom:8px">Plataformas</div>
+            <div id="platMgr" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+            <div style="display:flex;gap:6px">
+              <input type="text" id="newPlatInput" placeholder="Nova plataforma..." maxlength="30" style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:7px 10px;font-family:'IBM Plex Mono',monospace;font-size:.78rem;outline:none">
+              <button onclick="addPlatform()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:var(--rs);padding:7px 12px;cursor:pointer;font-size:.78rem;transition:all .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">+ Add</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-head-bar">
+            <h2>Histórico</h2>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <div class="hist-nav" id="histNav">
+                <button class="hist-mode-btn active" onclick="setHistMode('dia',this)">Dia</button>
+                <button class="hist-mode-btn" onclick="setHistMode('mes',this)">Mês</button>
+                <button class="hist-mode-btn" onclick="setHistMode('tudo',this)">Tudo</button>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px" id="histNavArrows">
+                <button class="fb" onclick="histMove(-1)" style="padding:4px 10px">&#8592;</button>
+                <span id="histLabel" style="font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.82rem;font-weight:600;color:var(--text);min-width:110px;text-align:center">—</span>
+                <button class="fb" onclick="histMove(1)" id="histNextBtn" style="padding:4px 10px">&#8594;</button>
+              </div>
+              <!-- Day nav inside month (only visible in mes mode) -->
+              <div style="display:none;align-items:center;gap:6px" id="histDayArrows">
+                <span style="font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.68rem;color:var(--text3);letter-spacing:.8px;text-transform:uppercase">Dia:</span>
+                <button class="fb" onclick="histDayMove(-1)" style="padding:4px 10px">&#8592;</button>
+                <span id="histDayLabel" style="font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.82rem;font-weight:600;color:var(--gold2);min-width:90px;text-align:center">Todos</span>
+                <button class="fb" onclick="histDayMove(1)" id="histDayNextBtn" style="padding:4px 10px">&#8594;</button>
+                <button class="fb" onclick="histDayClear()" id="histDayClearBtn" style="padding:4px 10px;display:none;color:var(--accent2);border-color:var(--accent)">✕ Todos</button>
+              </div>
+              <div class="tcnt" id="tCount">0 registros</div>
+            </div>
+          </div>
+          <!-- Day summary strip -->
+          <div id="histDaySummary" style="display:none;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;gap:20px;flex-wrap:wrap">
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:.58rem;color:var(--text3);font-family:'Rajdhani','IBM Plex Mono',monospace;letter-spacing:1px;text-transform:uppercase">Lucro do Período</span>
+              <span id="hSumLucro" style="font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--green)">R$ 0,00</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:.58rem;color:var(--text3);font-family:'Rajdhani','IBM Plex Mono',monospace;letter-spacing:1px;text-transform:uppercase">Depósitos</span>
+              <span id="hSumDep" style="font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:1rem;font-weight:600;color:var(--blue2)">R$ 0,00</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:.58rem;color:var(--text3);font-family:'Rajdhani','IBM Plex Mono',monospace;letter-spacing:1px;text-transform:uppercase">Saques</span>
+              <span id="hSumSaq" style="font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:1rem;font-weight:600;color:var(--red)">R$ 0,00</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:.58rem;color:var(--text3);font-family:'Rajdhani','IBM Plex Mono',monospace;letter-spacing:1px;text-transform:uppercase">Baú</span>
+              <span id="hSumBau" style="font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:1rem;font-weight:600;color:var(--gold2)">R$ 0,00</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:.58rem;color:var(--text3);font-family:'Rajdhani','IBM Plex Mono',monospace;letter-spacing:1px;text-transform:uppercase">Operações</span>
+              <span id="hSumOps" style="font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:1rem;font-weight:600;color:var(--text)">0</span>
+            </div>
+          </div>
+          <div class="tw"><table>
+            <thead><tr>
+              <th>Data</th><th>Plataforma</th><th>Dep.</th><th>Saque</th><th>Baú</th>
+              <th>Retorno</th><th>Lucro</th><th>Ações</th>
+            </tr></thead>
+            <tbody id="tBody"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <div class="slabel">Análise Gráfica</div>
+      <div class="charts-grid">
+        <div class="cc"><h3><span class="dot" style="background:var(--green)"></span>Lucro Diário</h3><canvas id="cLucroDia"></canvas></div>
+        <div class="cc"><h3><span class="dot" style="background:var(--gold)"></span>Lucro Mensal</h3><canvas id="cLucroMes"></canvas></div>
+        <div class="cc"><h3><span class="dot" style="background:var(--blue2)"></span>Lucro Acumulado</h3><canvas id="cAcum"></canvas></div>
+        <div class="cc"><h3><span class="dot" style="background:var(--red)"></span>Dep vs Saq vs Baú</h3><canvas id="cDepSaq"></canvas></div>
+        <div class="cc wide2"><h3><span class="dot" style="background:var(--text2)"></span>Evolução do Saldo</h3><canvas id="cSaldo"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- PIX VIEW -->
+  <div id="view-pix" class="view">
+    <div class="main">
+      <div style="max-width:900px;margin:0 auto">
+
+        <div class="slabel">Minhas Chaves Pix</div>
+
+        <!-- Bank cards grid -->
+        <div id="pixBankGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-bottom:28px"></div>
+
+        <div style="font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.68rem;color:var(--text3);display:flex;align-items:center;gap:6px;margin-bottom:20px">🔒 Suas chaves são privadas — nenhum outro usuário, nem o administrador, tem acesso.</div>
+        <!-- Add bank section (all users) -->
+        <div id="pixAdminSection">
+          <div class="slabel" style="margin-top:4px">Adicionar Banco</div>
+          <div style="background:var(--surface);border:2px dashed var(--border);border-radius:var(--r);padding:24px">
+            <h3 style="font-size:.95rem;font-weight:700;color:var(--accent2);margin-bottom:18px">🏦 Novo Banco</h3>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+              <div class="frow">
+                <label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:5px">Nome do Banco</label>
+                <input type="text" id="pix-bank-name" placeholder="Ex: Nubank, Bradesco..." maxlength="40"
+                  style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.85rem;outline:none">
+              </div>
+              <div class="frow">
+                <label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:5px">Ícone (emoji)</label>
+                <input type="text" id="pix-bank-icon" placeholder="Ex: 💜 🏦 🟢" maxlength="4"
+                  style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.9rem;outline:none">
+              </div>
+            </div>
+
+            <div class="frow" style="margin-bottom:8px">
+              <label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:5px">
+                Chaves Pix <span style="color:var(--text3);font-size:.58rem;text-transform:none;letter-spacing:0">(uma por linha, máx. 5)</span>
+              </label>
+              <textarea id="pix-bank-keys" placeholder="chave1@email.com&#10;chave2@email.com&#10;11912345678&#10;cpf.ou.cnpj&#10;chave-aleatoria" rows="5"
+                style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.82rem;outline:none;resize:none;line-height:1.7"></textarea>
+              <div style="font-size:.65rem;color:var(--text3);margin-top:4px;font-family:'Rajdhani','IBM Plex Mono',monospace">Digite até 5 chaves, uma por linha.</div>
+            </div>
+
+            <button class="btn-add" onclick="addPixBank()" style="margin:0;max-width:240px">🏦 Adicionar Banco</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- CICLOS VIEW -->
+  <div id="view-ciclos" class="view">
+    <div class="main">
+      <div class="slabel">Resumo por Dia</div>
+      <div class="month-summary-card" id="monthSummaryCard">
+        <h3>Totais do mês atual</h3>
+        <div class="month-rows" id="monthRows"></div>
+      </div>
+      <div class="slabel">Dias Registrados</div>
+      <div class="day-cards" id="dayCards"></div>
+    </div>
+  </div>
+
+  <!-- RANKING VIEW -->
+  <div id="view-ranking" class="view">
+    <div class="main">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px">
+        <div class="slabel" style="margin-bottom:0">🏆 Ranking Mensal</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="fb" id="rankPrevBtn" onclick="rankChangeMonth(-1)" title="Mês anterior">&#8592;</button>
+          <div id="rankMonthLabel" style="font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.85rem;font-weight:600;color:var(--text);min-width:110px;text-align:center"></div>
+          <button class="fb" id="rankNextBtn" onclick="rankChangeMonth(1)" title="Próximo mês">&#8594;</button>
+        </div>
+      </div>
+      <div class="rank-card" style="max-width:680px;margin:0 auto">
+        <div class="rank-list" id="rankMes"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE VIEW -->
+  <div id="view-profile" class="view">
+    <div class="main">
+      <div class="profile-wrap">
+        <div class="profile-hero">
+          <div class="ph-av" id="phAv" style="overflow:hidden"></div>
+          <div class="ph-name" id="phName">—</div>
+          <div class="ph-role" id="phRole">—</div>
+          <div class="profile-stats">
+            <div class="ps-item"><div class="ps-val" id="ps-ciclo">R$ 0</div><div class="ps-lbl">Lucro Ciclo</div></div>
+            <div class="ps-item"><div class="ps-val" id="ps-mes">R$ 0</div><div class="ps-lbl">Lucro Mês</div></div>
+            <div class="ps-item"><div class="ps-val" id="ps-ops">0</div><div class="ps-lbl">Operações</div></div>
+          </div>
+        </div>
+        <div class="profile-form">
+          <h3>✏️ Editar Perfil</h3>
+          <div class="frow"><label>Nome de exibição</label><input type="text" id="pfName" placeholder="Seu nome..." maxlength="24"></div>
+
+          <!-- Photo section -->
+          <div class="frow">
+            <label>Foto de Perfil</label>
+            <div class="photo-preview-wrap">
+              <div class="photo-preview-av" id="pfPhotoPreview"></div>
+              <div style="flex:1">
+                <div style="font-size:.78rem;color:var(--text2);margin-bottom:8px">Escolha uma foto da sua galeria ou selecione um avatar abaixo.</div>
+                <div class="photo-upload-area">
+                  <input type="file" id="pfPhotoInput" accept="image/*" onchange="handlePhotoUpload(this)">
+                  <div style="font-size:.8rem;color:var(--text2)">📁 Clique para escolher foto</div>
+                  <div style="font-size:.68rem;color:var(--text3);margin-top:3px">JPG, PNG, GIF, WEBP</div>
+                </div>
+                <button onclick="removePhoto()" id="pfRemoveBtn" style="display:none;margin-top:6px;background:none;border:1px solid var(--red);color:var(--red);border-radius:var(--rs);padding:4px 12px;cursor:pointer;font-size:.72rem;transition:all .15s">✕ Remover foto</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="frow">
+            <label>Cor do avatar (quando sem foto)</label>
+            <div class="color-picker-row" id="colorPicker"></div>
+          </div>
+          <div class="frow">
+            <label>Tema do Dashboard</label>
+            <div class="theme-grid" id="themeGrid"></div>
+          </div>
+          <div class="frow"><label>Nova senha</label><input type="password" id="pfPass" placeholder="Deixe em branco para manter"></div>
+          <button class="btn-save" onclick="saveProfile()">💾 Salvar Alterações</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN VIEW -->
+  <div id="view-admin" class="view">
+    <div class="main">
+      <div class="admin-wrap">
+        <div class="slabel">Gerenciar Contas</div>
+        <div class="accounts-grid" id="accountsGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXTENSÕES VIEW -->
+  <div id="view-extensoes" class="view">
+    <div class="main">
+      <div class="admin-wrap" style="max-width:1100px">
+        <div class="slabel">Extensões Instaladas</div>
+        <div id="extGrid" class="ext-grid"></div>
+        <div id="extAdminSection" style="display:none">
+        <div class="slabel" style="margin-top:28px">Adicionar Extensão</div>
+        <div class="ext-add-card">
+          <h3>🧩 Nova Extensão</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div class="frow">
+              <label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:5px">Nome</label>
+              <input type="text" id="ext-name" placeholder="Nome da extensão..." maxlength="40"
+                style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.85rem;outline:none">
+            </div>
+            <div class="frow">
+              <label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:5px">Versão</label>
+              <input type="text" id="ext-version" placeholder="Ex: 1.0.0" maxlength="16"
+                style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.85rem;outline:none">
+            </div>
+            <div class="frow">
+              <label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:5px">Categoria</label>
+              <select id="ext-cat"
+                style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.85rem;outline:none;-webkit-appearance:none">
+                <option value="automacao">Automação</option>
+                <option value="analise">Análise</option>
+                <option value="integracao">Integração</option>
+                <option value="seguranca">Segurança</option>
+                <option value="relatorio">Relatório</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+            <div class="frow">
+              <label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:5px">Ícone (emoji)</label>
+              <input type="text" id="ext-icon" placeholder="Ex: 🤖" maxlength="4"
+                style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.9rem;outline:none">
+            </div>
+          </div>
+          <div class="frow" style="margin-bottom:14px">
+            <label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:5px">Descrição</label>
+            <textarea id="ext-desc" placeholder="Descreva o que esta extensão faz..." maxlength="200"
+              style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.85rem;outline:none;resize:vertical;min-height:60px"></textarea>
+          </div>
+          <div class="frow" style="margin-bottom:14px">
+            <label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:5px">URL / Link de acesso (opcional)</label>
+            <input type="text" id="ext-url" placeholder="https://..." maxlength="200"
+              style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.85rem;outline:none">
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <button class="btn-add" onclick="addExtensao()" style="margin:0;max-width:220px">🧩 Adicionar Extensão</button>
+            <span style="font-size:.72rem;color:var(--text3);font-family:'Rajdhani','IBM Plex Mono',monospace">Visível para todos os usuários</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL: New Account -->
+<div class="modal-overlay" id="newAccModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('newAccModal')">✕</button>
+    <h2>➕ Nova Conta</h2>
+    <p>Crie uma conta para um novo usuário do sistema.</p>
+    <div class="frow"><label>Nome</label><input type="text" id="maName" placeholder="Nome do usuário..." maxlength="24"></div>
+    <div class="frow"><label>Senha</label><input type="password" id="maPass" placeholder="Senha de acesso..."></div>
+    <div class="frow"><label>Perfil</label>
+      <select id="maRole" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'IBM Plex Mono',monospace;font-size:.82rem;outline:none">
+        <option value="user">Usuário</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="frow">
+      <label>Cor do avatar</label>
+      <div class="color-picker-row" id="maColorPicker"></div>
+    </div>
+    <div style="margin-top:16px"><button class="btn-add" onclick="createAccount()" style="margin:0">Criar Conta</button></div>
+  </div>
+</div>
+
+<!-- MODAL: Edit Entry -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('editModal')">✕</button>
+    <h2>✏️ Editar Ciclo</h2>
+    <p>Corrija os valores e salve.</p>
+    <input type="hidden" id="em-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="frow"><label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:4px">Data</label>
+        <input type="date" id="em-date" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.9rem;outline:none"></div>
+      <div class="frow"><label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:4px">Plataforma</label>
+        <input type="text" id="em-plat" placeholder="Plataforma..." style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.9rem;outline:none"></div>
+      <div class="frow"><label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:4px">Depósito</label>
+        <input type="number" id="em-dep" step="0.01" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.9rem;outline:none"></div>
+      <div class="frow"><label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:4px">Saque</label>
+        <input type="number" id="em-saq" step="0.01" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.9rem;outline:none"></div>
+      <div class="frow" style="grid-column:span 2"><label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:4px">Baú</label>
+        <input type="number" id="em-bau" step="0.01" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.9rem;outline:none"></div>
+      <div class="frow" style="grid-column:span 2"><label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:4px">Observações</label>
+        <textarea id="em-obs" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.9rem;outline:none;resize:vertical;min-height:52px"></textarea></div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button class="btn-add" onclick="saveEditEntry()" style="margin:0;flex:1">💾 Salvar</button>
+      <button onclick="closeModal('editModal')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:var(--rs);padding:11px 18px;cursor:pointer;font-size:.85rem;font-family:'IBM Plex Sans',sans-serif">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Meta Mensal -->
+<div class="modal-overlay" id="metaModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('metaModal')">✕</button>
+    <h2>🎯 Meta do Mês</h2>
+    <p>Defina quanto quer lucrar este mês.</p>
+    <div class="frow">
+      <label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:6px">Valor da meta (R$)</label>
+      <input type="number" id="metaInput" placeholder="Ex: 30000" min="0" step="100"
+        style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:10px 13px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:1.1rem;outline:none;letter-spacing:1px">
+    </div>
+    <div style="margin-top:16px">
+      <button class="btn-add" onclick="saveMeta()" style="margin:0">💾 Salvar Meta</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">✓</div>
+
+<script>
+// ══════════════════════════════════════════════════
+// CONSTANTS & COLORS
+// ══════════════════════════════════════════════════
+const AVATAR_COLORS = [
+  {bg:'#c0392b',fg:'#fff'},{bg:'#e67e22',fg:'#fff'},{bg:'#f1c40f',fg:'#000'},
+  {bg:'#27ae60',fg:'#fff'},{bg:'#2980b9',fg:'#fff'},{bg:'#8e44ad',fg:'#fff'},
+  {bg:'#e84393',fg:'#fff'},{bg:'#1abc9c',fg:'#fff'},{bg:'#e74c3c',fg:'#fff'},
+  {bg:'#f39c12',fg:'#000'}
+];
+const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+// ══════════════════════════════════════════════════
+// STORAGE HELPERS
+// ══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════
+// FIREBASE DB ENGINE
+// ══════════════════════════════════════════════════
+let _localDB = null; // in-memory cache
+
+async function loadDB() {
+  const { db, doc, getDoc } = window._fb;
+  const snap = await getDoc(doc(db, 'qgdc', 'main'));
+  if (snap.exists()) {
+    _localDB = snap.data().payload;
+  } else {
+    _localDB = {
+      users: [{
+        id: 'admin',
+        name: 'Admin',
+        pass: 'admin123',
+        role: 'admin',
+        colorIdx: 0,
+        entries: [],
+        platforms: ['Plataforma A','Plataforma B']
+      }],
+      version: 1
+    };
+    await persistDB(_localDB);
+  }
+  return _localDB;
+}
+
+async function persistDB(data) {
+  const { db, doc, setDoc } = window._fb;
+  _localDB = data;
+  await setDoc(doc(db, 'qgdc', 'main'), { payload: data });
+}
+
+// Sync wrappers — keep sync API for rest of code
+function getDB() {
+  if (!_localDB) return { users:[] };
+  return _localDB;
+}
+
+function saveDB(data) {
+  _localDB = data;
+  persistDB(data).catch(e => console.error('Firebase save error:', e));
+}
+
+
+// ══════════════════════════════════════════════════
+// AVATAR HELPER (photo or color initial)
+// ══════════════════════════════════════════════════
+function renderAvatar(u, el, size) {
+  if (!el) return;
+  el.style.width  = size + 'px';
+  el.style.height = size + 'px';
+  el.style.borderRadius = '50%';
+  el.style.overflow = 'hidden';
+  el.style.display = 'flex';
+  el.style.alignItems = 'center';
+  el.style.justifyContent = 'center';
+  el.style.flexShrink = '0';
+  if (u.photo) {
+    el.style.background = 'transparent';
+    el.innerHTML = `<img src="${u.photo}" class="av-img" alt="${u.name}">`;
+  } else {
+    const col = AVATAR_COLORS[u.colorIdx||0];
+    el.style.background = col.bg;
+    el.style.color = col.fg;
+    el.style.fontFamily = "'Bebas Neue', sans-serif";
+    el.style.fontWeight = '700';
+    el.style.fontSize = Math.round(size * 0.45) + 'px';
+    el.innerHTML = u.name.charAt(0).toUpperCase();
+  }
+}
+
+// Returns inline HTML string for avatar (for innerHTML rendering)
+function avatarHTML(u, size) {
+  if (u.photo) {
+    return `<div style="width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center"><img src="${u.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"></div>`;
+  }
+  const col = AVATAR_COLORS[u.colorIdx||0];
+  const fs  = Math.round(size * 0.45);
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${col.bg};color:${col.fg};display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-weight:700;font-size:${fs}px;flex-shrink:0">${u.name.charAt(0).toUpperCase()}</div>`;
+}
+
+
+// ══════════════════════════════════════════════════
+// DASHBOARD THEMES
+// ══════════════════════════════════════════════════
+const THEMES = {
+  dark: {
+    name:'Escuro', emoji:'🌑',
+    vars:{'--bg':'#07090c','--bg2':'#0b0e14','--surface':'#10141f','--surface2':'#151b2a','--surface3':'#1a2236','--border':'#1e2a40','--border2':'#283a58','--text':'#e2ecf8','--text2':'#7a8faf','--text3':'#3e5070','--accent':'#ff6b00','--accent2':'#ff9240','--accent-bg':'rgba(255,107,0,.1)'}
+  },
+  black: {
+    name:'Preto Puro', emoji:'⬛',
+    vars:{'--bg':'#000000','--bg2':'#0a0a0a','--surface':'#111111','--surface2':'#181818','--surface3':'#202020','--border':'#2a2a2a','--border2':'#3a3a3a','--text':'#ffffff','--text2':'#999999','--text3':'#555555','--accent':'#ffffff','--accent2':'#cccccc','--accent-bg':'rgba(255,255,255,.07)'}
+  },
+  white: {
+    name:'Claro', emoji:'☀️',
+    vars:{'--bg':'#f0f2f7','--bg2':'#e4e8f0','--surface':'#ffffff','--surface2':'#f5f7fc','--surface3':'#eef0f8','--border':'#d0d6e8','--border2':'#b8c0d8','--text':'#1a2035','--text2':'#4a5580','--text3':'#8892b0','--accent':'#ff6b00','--accent2':'#cc5500','--accent-bg':'rgba(255,107,0,.1)'}
+  },
+  green: {
+    name:'Floresta', emoji:'🌿',
+    vars:{'--bg':'#040d07','--bg2':'#071209','--surface':'#0a1a0e','--surface2':'#0f2415','--surface3':'#142e1a','--border':'#1a3d22','--border2':'#225230','--text':'#d4f0dc','--text2':'#6aad7c','--text3':'#2e5e3a','--accent':'#00e87a','--accent2':'#4dff9a','--accent-bg':'rgba(0,232,122,.1)'}
+  },
+  blue: {
+    name:'Oceano', emoji:'🌊',
+    vars:{'--bg':'#020812','--bg2':'#030c1a','--surface':'#061222','--surface2':'#0a1a30','--surface3':'#0e223c','--border':'#132d50','--border2':'#1a3d6a','--text':'#cce4ff','--text2':'#5b9bd5','--text3':'#2a5480','--accent':'#4a9dff','--accent2':'#80bcff','--accent-bg':'rgba(74,157,255,.12)'}
+  },
+  purple: {
+    name:'Púrpura', emoji:'💜',
+    vars:{'--bg':'#07030f','--bg2':'#0d0618','--surface':'#130a22','--surface2':'#1a0f2e','--surface3':'#21143a','--border':'#2d1a4a','--border2':'#3d2560','--text':'#e8d4ff','--text2':'#9b6dd5','--text3':'#4d2a7a','--accent':'#b44dff','--accent2':'#d080ff','--accent-bg':'rgba(180,77,255,.1)'}
+  },
+  rose: {
+    name:'Rosa Neon', emoji:'🌸',
+    vars:{'--bg':'#0f020a','--bg2':'#160310','--surface':'#200516','--surface2':'#2a071e','--surface3':'#340926','--border':'#480d34','--border2':'#5e1244','--text':'#ffe0f0','--text2':'#d06090','--text3':'#7a2050','--accent':'#ff1f8e','--accent2':'#ff66b3','--accent-bg':'rgba(255,31,142,.1)'}
+  },
+  gold: {
+    name:'Ouro', emoji:'✨',
+    vars:{'--bg':'#090700','--bg2':'#110e00','--surface':'#1a1500','--surface2':'#221c00','--surface3':'#2b2300','--border':'#3d3300','--border2':'#524500','--text':'#fff8dc','--text2':'#c8a830','--text3':'#6b5800','--accent':'#ffc840','--accent2':'#ffdc80','--accent-bg':'rgba(255,200,64,.1)'}
+  },
+  cyber: {
+    name:'Cyber', emoji:'⚡',
+    vars:{'--bg':'#010108','--bg2':'#02020e','--surface':'#050514','--surface2':'#08081c','--surface3':'#0b0b24','--border':'#12124a','--border2':'#1a1a60','--text':'#e0e0ff','--text2':'#7070dd','--text3':'#303080','--accent':'#00ffff','--accent2':'#80ffff','--accent-bg':'rgba(0,255,255,.07)'}
+  },
+  crimson: {
+    name:'Sangue', emoji:'🩸',
+    vars:{'--bg':'#0a0000','--bg2':'#120000','--surface':'#1c0000','--surface2':'#240000','--surface3':'#2e0000','--border':'#440000','--border2':'#5e0000','--text':'#ffe0e0','--text2':'#cc5555','--text3':'#662222','--accent':'#ff1a1a','--accent2':'#ff6666','--accent-bg':'rgba(255,26,26,.1)'}
+  }
+};
+
+function applyTheme(themeKey) {
+  const theme = THEMES[themeKey]; if (!theme) return;
+  const root = document.documentElement.style;
+  Object.entries(theme.vars).forEach(([k,v]) => root.setProperty(k,v));
+  // save theme per user
+  const db = getDB();
+  const u  = db.users.find(x => x.id === currentUser);
+  if (u) { u.theme = themeKey; saveDB(db); }
+  // update selected state
+  document.querySelectorAll('.theme-opt').forEach(el => {
+    el.classList.toggle('selected', el.dataset.theme === themeKey);
+  });
+}
+
+function loadUserTheme() {
+  const u = getUser(currentUser);
+  if (u && u.theme) applyTheme(u.theme);
+}
+
+// ══════════════════════════════════════════════════
+// SESSION
+// ══════════════════════════════════════════════════
+let currentUser = null;
+let rankingOffset = 0; // months back from current
+
+function getUser(id) { return getDB().users.find(u=>u.id===id)||null; }
+
+function login(userId) {
+  const db = getDB();
+  const u = db.users.find(u=>u.id===userId);
+  if (!u) return;
+  currentUser = userId;
+  sessionStorage.setItem('qgdc_session', userId);
+  launchApp(u);
+}
+
+function logout() {
+  currentUser = null;
+  sessionStorage.removeItem('qgdc_session');
+  document.getElementById('appRoot').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  renderLogin();
+}
+
+function tryAutoLogin() {
+  const sid = sessionStorage.getItem('qgdc_session');
+  if (sid && getUser(sid)) { login(sid); return true; }
+  return false;
+}
+
+// ══════════════════════════════════════════════════
+// LOGIN SCREEN
+// ══════════════════════════════════════════════════
+function renderLogin() {
+  // Clear fields on each render
+  const lu = document.getElementById('loginUser');
+  const lp = document.getElementById('loginPass');
+  const le = document.getElementById('loginError');
+  if (lu) { lu.value = ''; lu.focus(); }
+  if (lp) lp.value = '';
+  if (le) le.style.display = 'none';
+}
+
+function toggleLoginPass() {
+  const inp = document.getElementById('loginPass');
+  if (!inp) return;
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function doLogin() {
+  const nameInput = (document.getElementById('loginUser').value || '').trim().toLowerCase();
+  const passInput = (document.getElementById('loginPass').value || '');
+  const errEl     = document.getElementById('loginError');
+
+  if (!nameInput || !passInput) {
+    errEl.textContent = 'Preencha usuário e senha.';
+    errEl.style.display = 'block'; return;
+  }
+
+  const db = getDB();
+  const u  = db.users.find(u => u.name.toLowerCase() === nameInput);
+
+  if (!u || u.pass !== passInput) {
+    errEl.textContent = 'Usuário ou senha incorretos.';
+    errEl.style.display = 'block';
+    document.getElementById('loginPass').value = '';
+    return;
+  }
+
+  errEl.style.display = 'none';
+  login(u.id);
+}
+
+// ══════════════════════════════════════════════════
+// LAUNCH APP
+// ══════════════════════════════════════════════════
+function launchApp(u) {
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appRoot').style.display='block';
+  // admin nav
+  document.getElementById('adminNavBtn').style.display = u.role==='admin'?'':'none';
+  document.getElementById('extNavBtn').style.display = ''; // visible for all
+  updateHeaderProfile();
+  loadUserTheme();
+  renderPlatforms();
+  render();
+  goView('dashboard', document.querySelector('.nav-btn'));
+}
+
+function updateHeaderProfile() {
+  const u = getUser(currentUser); if (!u) return;
+  const av = document.getElementById('headerAv');
+  renderAvatar(u, av, 28);
+  document.getElementById('headerName').textContent=u.name;
+}
+
+// ══════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════
+function goView(name, callerBtn) {
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  const el = document.getElementById('view-'+name);
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  if (callerBtn && callerBtn.classList && callerBtn.classList.contains('nav-btn')) callerBtn.classList.add('active');
+
+  if (name==='ciclos') renderCiclos();
+  if (name==='ranking') renderRanking();
+  if (name==='profile') renderProfile();
+  if (name==='admin') renderAdmin();
+  if (name==='extensoes') renderExtensoes();
+  if (name==='pix') renderPix();
+}
+
+// ══════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════
+const fmt  = v => 'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtS = v => { const n=Number(v||0); return (n>=0?'+':'')+n.toLocaleString('pt-BR',{minimumFractionDigits:2}); };
+const today = () => new Date().toISOString().slice(0,10);
+const now = () => new Date();
+
+function toast(msg,type='') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show'+(type?' '+type:'');
+  setTimeout(()=>t.className='toast',2800);
+}
+
+// ══════════════════════════════════════════════════
+// FILTER STATE
+// ══════════════════════════════════════════════════
+let activeFilter='ciclo', activePlat='all';
+
+function setFilter(f,btn) {
+  activeFilter=f;
+  document.querySelectorAll('.fb:not(.plat-fb)').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+function setPlatFilter(p,btn) {
+  activePlat=p;
+  document.querySelectorAll('.plat-fb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+function getFilteredEntries() {
+  const u = getUser(currentUser); if (!u) return [];
+  const sorted=[...u.entries].sort((a,b)=>a.date.localeCompare(b.date));
+  let res=sorted;
+  const d=now();
+  if (activeFilter==='dia') { const t=today(); res=res.filter(e=>e.date===t); }
+  else if (activeFilter==='semana') { const s=new Date(d); s.setDate(d.getDate()-d.getDay()); res=res.filter(e=>new Date(e.date+'T00:00:00')>=s); }
+  else if (activeFilter==='mes') { const ym=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; res=res.filter(e=>e.date.startsWith(ym)); }
+  if (activePlat!=='all') res=res.filter(e=>e.plat===activePlat);
+  return res;
+}
+
+// ══════════════════════════════════════════════════
+// PLATFORMS
+// ══════════════════════════════════════════════════
+function addPlatform() {
+  const inp=document.getElementById('newPlatInput');
+  const name=inp.value.trim();
+  if (!name) return;
+  const db=getDB(); const u=db.users.find(u2=>u2.id===currentUser);
+  if (!u || u.platforms.includes(name)) { toast('Plataforma já existe.','warn'); return; }
+  u.platforms.push(name); saveDB(db); renderPlatforms(); inp.value='';
+  toast('Plataforma adicionada!');
+}
+
+function removePlatform(name) {
+  const db=getDB(); const u=db.users.find(u2=>u2.id===currentUser); if (!u) return;
+  if (u.entries.some(e=>e.plat===name)) { toast('Em uso, não pode excluir.','err'); return; }
+  u.platforms=u.platforms.filter(p=>p!==name); saveDB(db); renderPlatforms();
+}
+
+function renderPlatforms() {
+  const u=getUser(currentUser); if (!u) return;
+  const plats=u.platforms||[];
+  // datalist for autocomplete
+  const dl=document.getElementById('platList');
+  if(dl) dl.innerHTML=plats.map(p=>`<option value="${p}">`).join('');
+  // mgr
+  document.getElementById('platMgr').innerHTML=plats.map(p=>`
+    <span style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 9px;font-size:.7rem;color:var(--text2);font-family:'IBM Plex Mono',monospace;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s" onclick="removePlatform('${p.replace(/'/g,"\\'")}')">
+      ${p} <span style="color:var(--text3)">✕</span>
+    </span>`).join('');
+  // filter buttons
+  const wrap=document.getElementById('platFilterWrap');
+  wrap.innerHTML=`<button class="fb plat-fb ${activePlat==='all'?'active':''}" onclick="setPlatFilter('all',this)">Todas</button>`
+    +plats.map(p=>`<button class="fb plat-fb ${activePlat===p?'active':''}" onclick="setPlatFilter('${p.replace(/'/g,"\\'")}',this)">${p}</button>`).join('');
+}
+
+// ══════════════════════════════════════════════════
+// PREVIEW CALC
+// ══════════════════════════════════════════════════
+function prevCalc() {
+  const dep=parseFloat(document.getElementById('fDep').value)||0;
+  const saq=parseFloat(document.getElementById('fSaq').value)||0;
+  const bau=parseFloat(document.getElementById('fBau').value)||0;
+  const ret=saq+bau; const luc=ret-dep;
+  document.getElementById('pRetorno').textContent=fmt(ret);
+  document.getElementById('pDep').textContent='−'+fmt(dep);
+  document.getElementById('pLucro').textContent=fmt(luc);
+  const row=document.getElementById('pRow');
+  row.className='prev-row hl'+(luc<0?' neg':'');
+}
+
+
+// ══════════════════════════════════════════════════
+// HISTÓRICO NAVIGATION
+// ══════════════════════════════════════════════════
+let histMode      = 'dia'; // 'dia' | 'mes' | 'tudo'
+let histOffset    = 0;     // months back (mes) or days back (dia)
+let histDayOffset = null;  // null = all days of month; number = specific day offset within month
+
+function setHistMode(mode, btn) {
+  histMode      = mode;
+  histOffset    = 0;
+  histDayOffset = null;
+  document.querySelectorAll('.hist-mode-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const mainArrows = document.getElementById('histNavArrows');
+  const dayArrows  = document.getElementById('histDayArrows');
+  if (mainArrows) mainArrows.style.display = mode === 'tudo' ? 'none' : 'flex';
+  if (dayArrows)  dayArrows.style.display  = mode === 'mes'  ? 'flex' : 'none';
+  render();
+}
+
+function histMove(dir) {
+  histOffset += dir;
+  if (histOffset > 0) histOffset = 0;
+  histDayOffset = null; // reset day selection when changing month
+  render();
+}
+
+// Day navigation within selected month
+function histDayMove(dir) {
+  const monthStr = getHistMonthStr();
+  // build sorted list of days that have entries in this month
+  const u = getUser(currentUser); if (!u) return;
+  const days = [...new Set(
+    u.entries.filter(e => e.date.startsWith(monthStr)).map(e => e.date)
+  )].sort();
+  if (!days.length) return;
+
+  if (histDayOffset === null) {
+    // start from last day if going back, first if going forward
+    histDayOffset = dir < 0 ? days.length - 1 : 0;
+  } else {
+    histDayOffset = Math.max(0, Math.min(days.length - 1, histDayOffset + dir));
+  }
+  render();
+}
+
+function histDayClear() {
+  histDayOffset = null;
+  render();
+}
+
+function getHistMonthStr() {
+  const d = now();
+  const target = new Date(d.getFullYear(), d.getMonth() + histOffset, 1);
+  const mm   = String(target.getMonth()+1).padStart(2,'0');
+  const yyyy = target.getFullYear();
+  return `${yyyy}-${mm}`;
+}
+
+function getHistLabel() {
+  const d = now();
+  if (histMode === 'dia') {
+    const target = new Date(d.getFullYear(), d.getMonth(), d.getDate() + histOffset);
+    const dd   = String(target.getDate()).padStart(2,'0');
+    const mm   = String(target.getMonth()+1).padStart(2,'0');
+    const yyyy = target.getFullYear();
+    const dow  = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][target.getDay()];
+    return { label: `${dow} ${dd}/${mm}/${yyyy}`, str: `${yyyy}-${mm}-${dd}` };
+  } else {
+    const target = new Date(d.getFullYear(), d.getMonth() + histOffset, 1);
+    const mm   = String(target.getMonth()+1).padStart(2,'0');
+    const yyyy = target.getFullYear();
+    return { label: `${MONTHS[target.getMonth()]}/${yyyy}`, str: `${yyyy}-${mm}` };
+  }
+}
+
+function getHistEntries(all) {
+  if (histMode === 'tudo') return all;
+  const { str } = getHistLabel();
+  if (histMode === 'dia') return all.filter(e => e.date === str);
+  if (histMode === 'mes') {
+    const monthEntries = all.filter(e => e.date.startsWith(str));
+    if (histDayOffset === null) return monthEntries;
+    // filter to specific day
+    const days = [...new Set(monthEntries.map(e => e.date))].sort();
+    const selDay = days[histDayOffset];
+    return selDay ? monthEntries.filter(e => e.date === selDay) : monthEntries;
+  }
+  return all;
+}
+
+function updateHistUI(all, entries) {
+  const { label } = histMode !== 'tudo' ? getHistLabel() : { label: 'Todas' };
+  const lbl = document.getElementById('histLabel');
+  if (lbl) lbl.textContent = label;
+
+  // main next button
+  const nextBtn = document.getElementById('histNextBtn');
+  if (nextBtn) {
+    const atCurrent = histOffset === 0;
+    nextBtn.disabled = atCurrent;
+    nextBtn.style.opacity = atCurrent ? '.3' : '1';
+    nextBtn.style.cursor  = atCurrent ? 'default' : 'pointer';
+  }
+
+  // day navigation (mes mode)
+  if (histMode === 'mes') {
+    const monthStr  = getHistMonthStr();
+    const days = [...new Set(
+      all.filter(e => e.date.startsWith(monthStr)).map(e => e.date)
+    )].sort();
+
+    const dayLbl     = document.getElementById('histDayLabel');
+    const dayNext    = document.getElementById('histDayNextBtn');
+    const dayClear   = document.getElementById('histDayClearBtn');
+
+    if (histDayOffset === null) {
+      if (dayLbl)   dayLbl.textContent = 'Todos os dias';
+      if (dayClear) dayClear.style.display = 'none';
+    } else {
+      const selDay = days[histDayOffset];
+      if (dayLbl && selDay) {
+        const [yyyy,mm,dd] = selDay.split('-');
+        const dow = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][new Date(selDay+'T12:00:00').getDay()];
+        dayLbl.textContent = `${dow} ${dd}/${mm}`;
+      }
+      if (dayClear) dayClear.style.display = 'flex';
+    }
+    // disable day prev/next at edges
+    const prevDayBtn = document.querySelector('#histDayArrows .fb');
+    if (prevDayBtn) {
+      const atFirst = histDayOffset === 0;
+      prevDayBtn.style.opacity = atFirst ? '.3' : '1';
+    }
+    if (dayNext) {
+      const atLast = histDayOffset !== null && histDayOffset >= days.length - 1;
+      dayNext.style.opacity = atLast ? '.3' : '1';
+    }
+  }
+
+  // summary strip
+  const strip = document.getElementById('histDaySummary');
+  if (strip) {
+    if (histMode === 'tudo') {
+      strip.style.display = 'none';
+    } else {
+      strip.style.display = 'flex';
+      const lucro = entries.reduce((s,e) => s+(e.saq+e.bau-e.dep), 0);
+      const dep   = entries.reduce((s,e) => s+e.dep, 0);
+      const saq   = entries.reduce((s,e) => s+e.saq, 0);
+      const bau   = entries.reduce((s,e) => s+e.bau, 0);
+      document.getElementById('hSumLucro').textContent = fmt(lucro);
+      document.getElementById('hSumLucro').style.color = lucro >= 0 ? 'var(--green)' : 'var(--red)';
+      document.getElementById('hSumDep').textContent   = fmt(dep);
+      document.getElementById('hSumSaq').textContent   = fmt(saq);
+      document.getElementById('hSumBau').textContent   = fmt(bau);
+      document.getElementById('hSumOps').textContent   = entries.length;
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════
+// ADD ENTRY
+// ══════════════════════════════════════════════════
+function addEntry() {
+  const date = document.getElementById('fData').value || today();
+  const plat = (document.getElementById('fPlat').value || '').trim();
+  const dep  = parseFloat(document.getElementById('fDep').value)  || 0;
+  const saq  = parseFloat(document.getElementById('fSaq').value)  || 0;
+  const bau  = parseFloat(document.getElementById('fBau').value)  || 0;
+  const obs  = document.getElementById('fObs').value.trim();
+
+  if (!plat) { toast('Digite o nome da plataforma!', 'err'); return; }
+
+  const db = getDB();
+  const u  = db.users.find(u2 => u2.id === currentUser);
+  if (!u) { toast('Usuario nao encontrado!', 'err'); return; }
+
+  if (!u.platforms.includes(plat)) u.platforms.push(plat);
+  u.entries.push({ id: Date.now(), date, plat, dep, saq, bau, obs });
+  saveDB(db);
+
+  ['fDep','fSaq','fBau','fObs'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('fPlat').value = '';
+
+  renderPlatforms();
+  prevCalc();
+  toast('Operacao registrada!');
+  render();
+}
+
+function deleteEntry(id) {
+  const db=getDB(); const u=db.users.find(u2=>u2.id===currentUser); if (!u) return;
+  u.entries=u.entries.filter(e=>e.id!==id); saveDB(db); render();
+}
+
+// ══════════════════════════════════════════════════
+// MAIN RENDER
+// ══════════════════════════════════════════════════
+function render() {
+  const u=getUser(currentUser); if (!u) return;
+  const all=[...u.entries].sort((a,b)=>a.date.localeCompare(b.date));
+  const filtered=getFilteredEntries();
+
+  // cumulative saldo map
+  let cum=0; const saldoMap={};
+  all.forEach(e=>{ cum+=e.dep-e.saq-e.bau; saldoMap[e.id]=cum; });
+
+  // summary (full cycle)
+  const totDep=all.reduce((s,e)=>s+e.dep,0);
+  const totSaq=all.reduce((s,e)=>s+e.saq,0);
+  const totBau=all.reduce((s,e)=>s+e.bau,0);
+  // lucro de cada ciclo = (saq+bau) - dep  →  acumula automaticamente no dia e no mês
+  const lucroEntry = e => (e.saq + e.bau) - e.dep;
+
+  const d=now();
+  const mesStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  const diaStr=today();
+  const lucroMes=all.filter(e=>e.date.startsWith(mesStr)).reduce((s,e)=>s+lucroEntry(e),0);
+  const lucroDia=all.filter(e=>e.date===diaStr).reduce((s,e)=>s+lucroEntry(e),0);
+
+  document.getElementById('v-lmes').textContent=fmt(lucroMes);
+  document.getElementById('v-ldia').textContent=fmt(lucroDia);
+  document.getElementById('v-lmes-sub').textContent=MONTHS[d.getMonth()]+'/'+d.getFullYear();
+  document.getElementById('v-ldia-sub').textContent=diaStr;
+  updateMetaBar(lucroMes);
+
+  // TABLE — use hist navigation filter
+  const histEntries = getHistEntries(all);
+  updateHistUI(all, histEntries);
+  const tbody=document.getElementById('tBody');
+  document.getElementById('tCount').textContent=histEntries.length+' registro'+(histEntries.length!==1?'s':'');
+  if (!histEntries.length) {
+    tbody.innerHTML=`<tr><td colspan="9" class="empty-td"><div class="ei">📊</div><div class="et">Sem registros no período.</div></td></tr>`;
+  } else {
+    tbody.innerHTML=[...histEntries].reverse().map(e=>{
+      const ret=e.saq+e.bau; const lc=ret-e.dep;
+      return `<tr>
+        <td class="vd">${e.date.split('-').reverse().join('/')}</td>
+        <td><span class="ptag">${e.plat}</span></td>
+        <td class="vb">${e.dep?fmt(e.dep):'—'}</td>
+        <td class="vr">${e.saq?fmt(e.saq):'—'}</td>
+        <td class="vo">${e.bau?fmt(e.bau):'—'}</td>
+        <td class="vm">${fmt(ret)}</td>
+        <td class="${lc>=0?'vg':'vr'}">${fmt(lc)}</td>
+        <td style="display:flex;gap:4px;align-items:center">
+          <button class="btn-edit" onclick="openEditModal(${e.id})" title="Editar">✏️</button>
+          <button class="btn-del" onclick="deleteEntry(${e.id})" title="Excluir">✕</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  renderCharts(filtered, all);
+}
+
+// ══════════════════════════════════════════════════
+// CICLOS VIEW
+// ══════════════════════════════════════════════════
+function renderCiclos() {
+  const u=getUser(currentUser); if (!u) return;
+  const all=[...u.entries].sort((a,b)=>a.date.localeCompare(b.date));
+  const d=now();
+  const mesStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+
+  // Month summary
+  const mesEntries=all.filter(e=>e.date.startsWith(mesStr));
+  const mDep=mesEntries.reduce((s,e)=>s+e.dep,0);
+  const mSaq=mesEntries.reduce((s,e)=>s+e.saq,0);
+  const mBau=mesEntries.reduce((s,e)=>s+e.bau,0);
+  const mLucro=mesEntries.reduce((s,e)=>s+(e.saq+e.bau-e.dep),0);
+  const mLiquidoCiclo=(mSaq+mBau)-mDep;
+  document.getElementById('monthRows').innerHTML=`
+    <div class="mr"><div class="mv vb">${fmt(mDep)}</div><div class="ml">Depósitos</div></div>
+    <div class="mr"><div class="mv vr">${fmt(mSaq)}</div><div class="ml">Saques</div></div>
+    <div class="mr"><div class="mv vo">${fmt(mBau)}</div><div class="ml">Baú</div></div>
+    <div class="mr"><div class="mv ${mLucro>=0?'vg':'vr'}">${fmt(mLucro)}</div><div class="ml">Σ Lucros do Dia</div></div>
+    <div class="mr"><div class="mv ${mLiquidoCiclo>=0?'vg':'vr'}">${fmt(mLiquidoCiclo)}</div><div class="ml">Lucro Líquido</div></div>
+    <div class="mr"><div class="mv vm">${mesEntries.length}</div><div class="ml">Operações</div></div>
+  `;
+
+  // Group by day
+  const byDay={};
+  all.forEach(e=>{
+    if (!byDay[e.date]) byDay[e.date]=[];
+    byDay[e.date].push(e);
+  });
+  const days=Object.keys(byDay).sort().reverse();
+
+  if (!days.length) {
+    document.getElementById('dayCards').innerHTML=`<div style="color:var(--text3);font-size:.85rem;padding:32px 0">Nenhuma operação registrada ainda.</div>`;
+    return;
+  }
+
+  document.getElementById('dayCards').innerHTML=days.map(day=>{
+    const ops=byDay[day];
+    const dLucro=ops.reduce((s,e)=>s+(e.saq+e.bau-e.dep),0);
+    const dDep=ops.reduce((s,e)=>s+e.dep,0);
+    const dSaq=ops.reduce((s,e)=>s+e.saq,0);
+    const dBau=ops.reduce((s,e)=>s+e.bau,0);
+    const dayLabel=day.split('-').reverse().join('/');
+    const dow=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][new Date(day+'T12:00:00').getDay()];
+    return `<div class="day-card">
+      <div class="dc-date">${dow}, ${dayLabel}</div>
+      <div class="dc-lucro ${dLucro>=0?'pos':'neg'}">${fmt(dLucro)}</div>
+      <div class="dc-meta">
+        <span>📥 ${fmt(dDep)}</span>
+        <span>📤 ${fmt(dSaq)}</span>
+        <span>🏺 ${fmt(dBau)}</span>
+      </div>
+      <div class="dc-cycles">
+        ${ops.map(e=>{
+          const lc=(e.saq+e.bau)-e.dep;
+          return `<div class="cycle-row">
+            <span class="cr-plat">${e.plat}</span>
+            <span class="cr-lucro ${lc>=0?'pos':'neg'}">${fmt(lc)}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════
+// RANKING VIEW
+// ══════════════════════════════════════════════════
+function rankChangeMonth(dir) {
+  rankingOffset += dir;
+  if (rankingOffset > 0) rankingOffset = 0; // can't go into future
+  renderRanking();
+}
+
+function getRankingMonthStr() {
+  const d = now();
+  const target = new Date(d.getFullYear(), d.getMonth() + rankingOffset, 1);
+  return {
+    str: `${target.getFullYear()}-${String(target.getMonth()+1).padStart(2,'0')}`,
+    label: MONTHS[target.getMonth()] + '/' + target.getFullYear(),
+    isCurrent: rankingOffset === 0
+  };
+}
+
+function renderRanking() {
+  const db = getDB();
+  const { str: mesStr, label: mesLabel, isCurrent } = getRankingMonthStr();
+
+  // Update month label and nav buttons
+  const lbl = document.getElementById('rankMonthLabel');
+  const nextBtn = document.getElementById('rankNextBtn');
+  if (lbl) lbl.textContent = mesLabel;
+  if (nextBtn) {
+    nextBtn.disabled = isCurrent;
+    nextBtn.style.opacity = isCurrent ? '.3' : '1';
+    nextBtn.style.cursor = isCurrent ? 'default' : 'pointer';
+  }
+
+  const posClass = ['p1','p2','p3'];
+  const medals   = ['🥇','🥈','🥉'];
+
+  const userStats = db.users.map(u => { const fullU = u;
+    const entries = u.entries.filter(e => e.date.startsWith(mesStr));
+    const lucroMes = entries.reduce((s, e) => s + (e.saq + e.bau - e.dep), 0);
+    const ops = entries.length;
+    return { id: u.id, name: u.name, colorIdx: u.colorIdx || 0, photo: u.photo||null, lucroMes, ops };
+  });
+
+  const sorted = [...userStats].sort((a, b) => b.lucroMes - a.lucroMes);
+  const maxVal = Math.max(...sorted.map(u => Math.abs(u.lucroMes)), 1);
+
+  const html = sorted.map((u, i) => {
+    const col  = AVATAR_COLORS[u.colorIdx];
+    const pct  = Math.max(5, Math.abs(u.lucroMes) / maxVal * 100);
+    const pc   = i < 3 ? posClass[i] : 'pn';
+    const lbl2 = i < 3 ? medals[i] : `#${i+1}`;
+    const isMe = u.id === currentUser ? 'border-color:var(--accent)' : '';
+    const opsLabel = u.ops + ' op' + (u.ops !== 1 ? 's' : '') + ' no mês';
+    return `<div class="rank-item" style="${isMe}">
+      <div class="rank-pos ${pc}">${lbl2}</div>
+      ${avatarHTML(u, 36)}
+      <div class="rank-info">
+        <div class="rname">${u.name}${u.id===currentUser?' <span style="font-size:.65rem;color:var(--accent2)">(você)</span>':''}</div>
+        <div class="rsub">${opsLabel}</div>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:${pct}%;background:${u.lucroMes>=0?'var(--green)':'var(--red)'}"></div></div>
+      </div>
+      <div class="rank-val ${u.lucroMes>=0?'pos':'neg'}">${fmt(u.lucroMes)}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('rankMes').innerHTML = html || '<div style="color:var(--text3);font-size:.8rem;padding:20px">Nenhum dado neste mês.</div>';
+}
+
+// ══════════════════════════════════════════════════
+// PROFILE VIEW
+// ══════════════════════════════════════════════════
+function renderProfile() {
+  const u=getUser(currentUser); if (!u) return;
+
+  // hero avatar (big)
+  const av=document.getElementById('phAv');
+  av.style.width='80px'; av.style.height='80px';
+  av.style.borderRadius='50%'; av.style.overflow='hidden';
+  av.style.margin='0 auto 14px';
+  av.style.border='2px solid var(--border2)';
+  renderAvatar(u, av, 80);
+
+  document.getElementById('phName').textContent=u.name;
+  document.getElementById('phRole').textContent=u.role==='admin'?'Administrador':'Usuário';
+  document.getElementById('pfName').value=u.name;
+  document.getElementById('pfPass').value='';
+
+  // photo preview in form
+  const prev=document.getElementById('pfPhotoPreview');
+  if (prev) renderAvatar(u, prev, 72);
+  const removeBtn=document.getElementById('pfRemoveBtn');
+  if (removeBtn) removeBtn.style.display = u.photo ? 'inline-flex' : 'none';
+
+  // stats
+  const lucroMes=u.entries.filter(e=>e.date.startsWith(today().slice(0,7))).reduce((s,e)=>s+(e.saq+e.bau-e.dep),0);
+  const lucroCiclo=u.entries.reduce((s,e)=>s+(e.saq+e.bau-e.dep),0);
+  document.getElementById('ps-ciclo').textContent=fmt(lucroCiclo);
+  document.getElementById('ps-mes').textContent=fmt(lucroMes);
+  document.getElementById('ps-ops').textContent=u.entries.length;
+
+  // theme picker
+  renderThemePicker(u.theme || 'dark');
+
+  // color picker
+  buildColorPicker('colorPicker', u.colorIdx||0, idx=>{
+    const db2=getDB(); const u2=db2.users.find(x=>x.id===currentUser);
+    if (u2) { u2.colorIdx=idx; saveDB(db2); updateHeaderProfile(); renderProfile(); }
+  });
+}
+
+function buildColorPicker(containerId, selectedIdx, onSelect) {
+  const wrap=document.getElementById(containerId); if (!wrap) return;
+  wrap.innerHTML=AVATAR_COLORS.map((c,i)=>`
+    <div class="color-opt ${i===selectedIdx?'selected':''}" style="background:${c.bg};color:${c.fg}"
+      onclick="(${onSelect.toString()})(${i}); document.querySelectorAll('#${containerId} .color-opt').forEach((el,j)=>el.className='color-opt'+(j===${i}?' selected':'')); ">
+      ${i===selectedIdx?'✓':''}
+    </div>`).join('');
+}
+
+function saveProfile() {
+  const name=document.getElementById('pfName').value.trim();
+  const pass=document.getElementById('pfPass').value;
+  if (!name) { toast('Nome não pode ser vazio.','err'); return; }
+  const db=getDB(); const u=db.users.find(x=>x.id===currentUser); if (!u) return;
+  u.name=name;
+  if (pass) u.pass=pass;
+  saveDB(db); updateHeaderProfile();
+  toast('✓ Perfil atualizado!'); renderProfile();
+}
+
+
+function renderThemePicker(currentTheme) {
+  const grid = document.getElementById('themeGrid'); if (!grid) return;
+  grid.innerHTML = Object.entries(THEMES).map(([key, t]) => {
+    const sel = key === currentTheme;
+    // preview dots from theme vars
+    const bg  = t.vars['--surface'] || '#111';
+    const acc = t.vars['--accent']  || '#ff6b00';
+    const txt = t.vars['--text2']   || '#888';
+    return `<div class="theme-opt ${sel?'selected':''}" data-theme="${key}" onclick="applyTheme('${key}'); renderThemePicker('${key}')">
+      <span class="te">${t.emoji}</span>
+      <span class="tn">${t.name}</span>
+      <div class="theme-preview">
+        <div class="dot" style="background:${bg}"></div>
+        <div class="dot" style="background:${acc}"></div>
+        <div class="dot" style="background:${txt}"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════
+// ADMIN VIEW
+// ══════════════════════════════════════════════════
+function renderAdmin() {
+  const db=getDB();
+  const grid=document.getElementById('accountsGrid');
+
+  const cards=db.users.map(u=>{
+    const c=AVATAR_COLORS[u.colorIdx||0];
+    const lucroMes=u.entries.filter(e=>e.date.startsWith(today().slice(0,7))).reduce((s,e)=>s+(e.saq+e.bau-e.dep),0);
+    const lucroCiclo=u.entries.reduce((s,e)=>s+(e.saq+e.bau-e.dep),0);
+    const isMe=u.id===currentUser;
+    return `<div class="acc-card" style="${isMe?'border-color:var(--accent)':''}">
+      <div class="acc-card-top">
+        ${avatarHTML(u, 44)}
+        <div class="info">
+          <div class="n">${u.name}${isMe?' <span style="font-size:.65rem;color:var(--accent2)">(você)</span>':''}</div>
+          <div class="r">${u.role==='admin'?'<span class="badge-admin">Admin</span>':'<span class="badge-user">Usuário</span>'}</div>
+        </div>
+      </div>
+      <div class="acc-stats">
+        <div class="as"><div class="as-val ${lucroCiclo>=0?'pos':'neu'}">${fmt(lucroCiclo)}</div><div class="as-lbl">Lucro Ciclo</div></div>
+        <div class="as"><div class="as-val ${lucroMes>=0?'pos':'neu'}">${fmt(lucroMes)}</div><div class="as-lbl">Lucro Mês</div></div>
+        <div class="as"><div class="as-val neu">${u.entries.length}</div><div class="as-lbl">Ops.</div></div>
+      </div>
+      <div class="acc-actions">
+        ${!isMe?`<button class="btn-sm danger" onclick="deleteAccount('${u.id}')">🗑 Excluir</button>`:''}
+        <button class="btn-sm" onclick="resetUserData('${u.id}')">🔄 Zerar dados</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  grid.innerHTML=cards+`
+    <div class="new-acc-card">
+      <h3>➕ Nova Conta</h3>
+      <div class="frow" style="margin-bottom:10px"><label style="font-size:.6rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;display:block;margin-bottom:4px">Nome</label>
+        <input type="text" id="na-name" placeholder="Nome..." maxlength="24" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'IBM Plex Mono',monospace;font-size:.8rem;outline:none"></div>
+      <div class="frow" style="margin-bottom:10px"><label style="font-size:.6rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;display:block;margin-bottom:4px">Senha</label>
+        <input type="password" id="na-pass" placeholder="Senha..." style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'IBM Plex Mono',monospace;font-size:.8rem;outline:none"></div>
+      <div class="frow" style="margin-bottom:10px"><label style="font-size:.6rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;display:block;margin-bottom:4px">Perfil</label>
+        <select id="na-role" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'IBM Plex Mono',monospace;font-size:.8rem;outline:none;-webkit-appearance:none">
+          <option value="user">Usuário</option><option value="admin">Admin</option>
+        </select></div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:.6rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;margin-bottom:6px">Cor do avatar</div>
+        <div id="na-colors" style="display:flex;gap:6px;flex-wrap:wrap">
+          ${AVATAR_COLORS.map((c,i)=>`<div onclick="selectNewAccColor(${i})" id="nac-${i}" style="width:28px;height:28px;border-radius:50%;background:${c.bg};cursor:pointer;border:2px solid ${i===0?'white':'transparent'};transition:all .15s;display:flex;align-items:center;justify-content:center;font-size:.65rem;color:${c.fg};font-weight:700">${i===0?'✓':''}</div>`).join('')}
+        </div>
+      </div>
+      <button class="btn-add" onclick="createAccount()" style="margin:0;font-size:.82rem;padding:9px">Criar Conta</button>
+    </div>`;
+}
+
+let newAccColorIdx=0;
+function selectNewAccColor(idx) {
+  newAccColorIdx=idx;
+  AVATAR_COLORS.forEach((_,i)=>{
+    const el=document.getElementById('nac-'+i); if(!el) return;
+    const c=AVATAR_COLORS[i];
+    el.style.border=i===idx?'2px solid white':'2px solid transparent';
+    el.textContent=i===idx?'✓':'';
+  });
+}
+
+function createAccount() {
+  const name=(document.getElementById('na-name')||{value:''}).value.trim();
+  const pass=(document.getElementById('na-pass')||{value:''}).value;
+  const role=(document.getElementById('na-role')||{value:'user'}).value;
+  if (!name||!pass) { toast('Preencha nome e senha.','err'); return; }
+  const db=getDB();
+  if (db.users.some(u=>u.name.toLowerCase()===name.toLowerCase())) { toast('Nome já existe.','err'); return; }
+  const id='u_'+Date.now();
+  db.users.push({id,name,pass,role,colorIdx:newAccColorIdx,entries:[],platforms:['Plataforma A','Plataforma B']});
+  saveDB(db); newAccColorIdx=0; toast('✓ Conta criada!'); renderAdmin(); renderLogin();
+}
+
+function deleteAccount(id) {
+  if (id===currentUser) { toast('Não pode excluir sua própria conta.','err'); return; }
+  if (!confirm('Excluir esta conta e todos os dados?')) return;
+  const db=getDB(); db.users=db.users.filter(u=>u.id!==id); saveDB(db);
+  toast('Conta excluída.','warn'); renderAdmin();
+}
+
+function resetUserData(id) {
+  if (!confirm('Zerar todos os dados desta conta?')) return;
+  const db=getDB(); const u=db.users.find(x=>x.id===id); if(!u) return;
+  u.entries=[]; saveDB(db); toast('Dados zerados.','warn'); renderAdmin(); if(id===currentUser) render();
+}
+
+// ══════════════════════════════════════════════════
+// CHARTS
+// ══════════════════════════════════════════════════
+let charts={};
+Chart.defaults.color='#3e5070';
+Chart.defaults.font.family="'Rajdhani', 'IBM Plex Mono', monospace";
+Chart.defaults.font.size=10;
+
+const go=()=>({
+  plugins:{legend:{display:false},tooltip:{backgroundColor:'#151b2a',borderColor:'#1e2a40',borderWidth:1,titleColor:'#e2ecf8',bodyColor:'#7a8faf',padding:10,callbacks:{label:ctx=>'  '+fmt(ctx.raw)}}},
+  scales:{x:{grid:{color:'rgba(30,42,64,.5)'},ticks:{maxTicksLimit:8}},y:{grid:{color:'rgba(30,42,64,.5)'},ticks:{callback:v=>'R$'+Number(v).toLocaleString('pt-BR')}}},
+  animation:{duration:300},responsive:true,maintainAspectRatio:true
+});
+
+function mc(id,cfg){if(charts[id]){charts[id].destroy();delete charts[id]}charts[id]=new Chart(document.getElementById(id),cfg)}
+
+function renderCharts(filtered, all) {
+  const sorted=[...filtered].sort((a,b)=>a.date.localeCompare(b.date));
+  const labels=sorted.map(e=>e.date.slice(5).split('-').reverse().join('/'));
+
+  // 1. lucro diário
+  const d1=sorted.map(e=>(e.saq+e.bau-e.dep));
+  mc('cLucroDia',{type:'bar',data:{labels,datasets:[{data:d1,backgroundColor:d1.map(v=>v>=0?'rgba(0,232,122,.6)':'rgba(255,59,59,.6)'),borderRadius:4,borderSkipped:false}]},options:go()});
+
+  // 2. lucro mensal
+  const mm={}; sorted.forEach(e=>{const k=e.date.slice(0,7);mm[k]=(mm[k]||0)+(e.saq+e.bau-e.dep)});
+  const mk=Object.keys(mm).sort(); const md=mk.map(k=>mm[k]);
+  mc('cLucroMes',{type:'bar',data:{labels:mk.map(k=>{const[y,m]=k.split('-');return MONTHS[+m-1]+'/'+y.slice(2)}),datasets:[{data:md,backgroundColor:md.map(v=>v>=0?'rgba(255,200,64,.55)':'rgba(255,59,59,.55)'),borderColor:md.map(v=>v>=0?'#ffc840':'#ff3b3b'),borderWidth:1.5,borderRadius:6}]},options:go()});
+
+  // 3. acumulado
+  let cl=0; const ca=sorted.map(e=>{cl+=(e.saq+e.bau-e.dep);return cl});
+  const acColor=ca[ca.length-1]>=0?'#4a9dff':'#ff3b3b';
+  mc('cAcum',{type:'line',data:{labels,datasets:[{data:ca,borderColor:acColor,backgroundColor:ca[ca.length-1]>=0?'rgba(74,157,255,.08)':'rgba(255,59,59,.08)',borderWidth:2.5,pointRadius:3,pointBackgroundColor:acColor,fill:true,tension:.4}]},options:go()});
+
+  // 4. dep vs saq vs bau
+  const go4={...go(),plugins:{...go().plugins,legend:{display:true,labels:{color:'#7a8faf',boxWidth:8,font:{size:10}}}}};
+  mc('cDepSaq',{type:'bar',data:{labels,datasets:[{label:'Dep',data:sorted.map(e=>e.dep),backgroundColor:'rgba(74,157,255,.55)',borderRadius:3},{label:'Saque',data:sorted.map(e=>e.saq),backgroundColor:'rgba(255,59,59,.55)',borderRadius:3},{label:'Baú',data:sorted.map(e=>e.bau),backgroundColor:'rgba(255,200,64,.5)',borderRadius:3}]},options:go4});
+
+  // 5. evolução saldo (all)
+  let cs=0; const sev=all.map(e=>{cs+=e.dep-e.saq-e.bau;return cs});
+  const sc2=cs>=0?'#00e87a':'#ff3b3b';
+  mc('cSaldo',{type:'line',data:{labels:all.map(e=>e.date.slice(5).split('-').reverse().join('/')),datasets:[{data:sev,borderColor:sc2,backgroundColor:cs>=0?'rgba(0,232,122,.07)':'rgba(255,59,59,.07)',borderWidth:2,pointRadius:2,pointBackgroundColor:sc2,fill:true,tension:.35}]},options:go()});
+}
+
+
+
+// ══════════════════════════════════════════════════
+// EXTENSÕES
+// ══════════════════════════════════════════════════
+function getExtensoes() {
+  return _localDB && _localDB.extensoes ? _localDB.extensoes : [];
+}
+function saveExtensoes(arr) {
+  const db = getDB();
+  db.extensoes = arr;
+  saveDB(db);
+}
+
+const CAT_LABELS = {
+  automacao:'Automação', analise:'Análise', integracao:'Integração',
+  seguranca:'Segurança', relatorio:'Relatório', outro:'Outro'
+};
+
+function addExtensao() {
+  const name = (document.getElementById('ext-name').value || '').trim();
+  const ver  = (document.getElementById('ext-version').value || '1.0.0').trim();
+  const cat  = document.getElementById('ext-cat').value;
+  const icon = (document.getElementById('ext-icon').value || '🧩').trim();
+  const desc = (document.getElementById('ext-desc').value || '').trim();
+  const url  = (document.getElementById('ext-url').value || '').trim();
+  if (!name) { toast('Digite o nome da extensão!', 'err'); return; }
+  const exts = getExtensoes();
+  exts.push({ id: Date.now(), name, ver, cat, icon, desc, url, date: today() });
+  saveExtensoes(exts);
+  ['ext-name','ext-version','ext-icon','ext-desc','ext-url'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  toast('Extensão adicionada!');
+  renderExtensoes();
+}
+
+function deleteExtensao(id) {
+  const exts = getExtensoes().filter(e => e.id !== id);
+  saveExtensoes(exts);
+  renderExtensoes();
+  toast('Extensão removida.', 'warn');
+}
+
+function renderExtensoes() {
+  const grid = document.getElementById('extGrid'); if (!grid) return;
+  const exts = getExtensoes();
+  const u    = getUser(currentUser);
+  const isAdmin = u && u.role === 'admin';
+
+  // show/hide add form
+  const adminSection = document.getElementById('extAdminSection');
+  if (adminSection) adminSection.style.display = isAdmin ? 'block' : 'none';
+
+  if (!exts.length) {
+    grid.innerHTML = `<div class="ext-empty" style="grid-column:1/-1"><div class="ei">🧩</div><div class="et">Nenhuma extensão instalada ainda.${isAdmin ? '<br>Adicione sua primeira extensão abaixo.' : ''}</div></div>`;
+    return;
+  }
+  grid.innerHTML = exts.map(e => `
+    <div class="ext-card cat-${e.cat}">
+      <div class="ext-header">
+        <div class="ext-icon">${e.icon}</div>
+        <div class="ext-title">
+          <div class="en">${e.name}</div>
+          <div class="ev">v${e.ver}</div>
+        </div>
+        ${isAdmin ? `<button class="btn-del" onclick="deleteExtensao(${e.id})" title="Remover extensão" style="margin-left:4px">✕</button>` : ''}
+      </div>
+      <span class="ext-cat-tag cat-${e.cat}">${CAT_LABELS[e.cat]||e.cat}</span>
+      <div class="ext-desc">${e.desc || '<span style="color:var(--text3);font-style:italic">Sem descrição.</span>'}</div>
+      <div class="ext-footer">
+        <span class="ext-date">Adicionado em ${e.date ? e.date.split('-').reverse().join('/') : '—'}</span>
+        <div class="ext-actions">
+          ${e.url ? `<a class="ext-link-btn" href="${e.url}" target="_blank">🔗 Acessar</a>` : ''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+
+
+// ══════════════════════════════════════════════════
+// CHAVES PIX
+// ══════════════════════════════════════════════════
+function getPixBanks() {
+  const db = getDB();
+  const u  = db.users.find(x => x.id === currentUser);
+  return u && u.pixBanks ? u.pixBanks : [];
+}
+function savePixBanks(arr) {
+  const db = getDB();
+  const u  = db.users.find(x => x.id === currentUser);
+  if (!u) return;
+  u.pixBanks = arr;
+  saveDB(db);
+}
+
+function addPixBank() {
+  const name = (document.getElementById('pix-bank-name').value || '').trim();
+  const icon = (document.getElementById('pix-bank-icon').value || '🏦').trim();
+  const raw  = (document.getElementById('pix-bank-keys').value || '');
+  if (!name) { toast('Digite o nome do banco!', 'err'); return; }
+  const keys = raw.split('\n').map(k => k.trim()).filter(k => k.length > 0).slice(0, 5);
+  if (!keys.length) { toast('Adicione ao menos uma chave!', 'err'); return; }
+  const banks = getPixBanks();
+  banks.push({ id: Date.now(), name, icon, keys });
+  savePixBanks(banks);
+  document.getElementById('pix-bank-name').value = '';
+  document.getElementById('pix-bank-icon').value = '';
+  document.getElementById('pix-bank-keys').value = '';
+  toast('Banco adicionado!');
+  renderPix();
+}
+
+function deletePixBank(id) {
+  savePixBanks(getPixBanks().filter(b => b.id !== id));
+  toast('Banco removido.', 'warn');
+  renderPix();
+}
+
+function copyPixKey(key, btn) {
+  navigator.clipboard.writeText(key).then(() => {
+    btn.textContent = '✓ Copiado';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Copiar'; btn.classList.remove('copied'); }, 2000);
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = key; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = '✓ Copiado';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Copiar'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function copyAllKeys(bankId, btn) {
+  const bank = getPixBanks().find(b => b.id === bankId);
+  if (!bank) return;
+  const text = bank.keys.join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✓ Todas copiadas!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('copied'); }, 2500);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.innerHTML = '✓ Copiadas!';
+    setTimeout(() => { btn.innerHTML = '📋 Copiar todas'; }, 2500);
+  });
+}
+
+function renderPix() {
+  const grid = document.getElementById('pixBankGrid'); if (!grid) return;
+  const u = getUser(currentUser);
+  const isAdmin = u && u.role === 'admin';
+
+  const adminSec = document.getElementById('pixAdminSection');
+  if (adminSec) adminSec.style.display = 'block';
+
+  const banks = getPixBanks();
+  if (!banks.length) {
+    grid.innerHTML = `<div class="pix-empty"><div class="ei">💳</div><div class="et">Nenhuma chave cadastrada ainda.<br>Adicione seu primeiro banco abaixo.</div></div>`;
+    return;
+  }
+
+  grid.innerHTML = banks.map(bank => `
+    <div class="pix-bank-card">
+      <div class="pix-bank-header">
+        <div class="pix-bank-title">
+          <span class="pix-bank-icon">${bank.icon}</span>
+          <span class="pix-bank-name">${bank.name}</span>
+        </div>
+        <button class="btn-del" onclick="deletePixBank(${bank.id})" title="Remover banco">✕</button>
+      </div>
+      <div class="pix-keys-list">
+        ${bank.keys.map((k, i) => `
+          <div class="pix-key-row">
+            <span style="font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.65rem;color:var(--text3);width:16px;flex-shrink:0;text-align:center">${i+1}</span>
+            <span class="pix-key-val" title="${k}">${k}</span>
+            <button class="pix-copy-btn" onclick="copyPixKey('${k.replace(/'/g,"\\'")}', this)">📋 Copiar</button>
+          </div>`).join('')}
+      </div>
+      <div class="pix-bank-footer">
+        <span style="font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.65rem;color:var(--text3)">${bank.keys.length} chave${bank.keys.length!==1?'s':''}</span>
+        <button class="pix-copy-all-btn" onclick="copyAllKeys(${bank.id}, this)">📋 Copiar todas</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════════════
+// PHOTO UPLOAD
+// ══════════════════════════════════════════════════
+function handlePhotoUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  if (!file.type.startsWith('image/')) { toast('Selecione uma imagem!', 'err'); return; }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const db = getDB();
+    const u  = db.users.find(x => x.id === currentUser); if (!u) return;
+    // resize to max 200x200 to save storage
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const max = 200;
+      let w = img.width, h = img.height;
+      if (w > max || h > max) {
+        if (w > h) { h = Math.round(h * max/w); w = max; }
+        else       { w = Math.round(w * max/h); h = max; }
+      }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      u.photo = canvas.toDataURL('image/jpeg', 0.82);
+      saveDB(db);
+      updateHeaderProfile();
+      renderProfile();
+      toast('Foto atualizada!');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removePhoto() {
+  const db = getDB();
+  const u  = db.users.find(x => x.id === currentUser); if (!u) return;
+  delete u.photo;
+  saveDB(db);
+  updateHeaderProfile();
+  renderProfile();
+  toast('Foto removida.', 'warn');
+}
+
+// ══════════════════════════════════════════════════
+// EDIT ENTRY
+// ══════════════════════════════════════════════════
+function openEditModal(id) {
+  const u = getUser(currentUser); if (!u) return;
+  const e = u.entries.find(x => x.id === id); if (!e) return;
+  document.getElementById('em-id').value   = id;
+  document.getElementById('em-date').value = e.date;
+  document.getElementById('em-plat').value = e.plat;
+  document.getElementById('em-dep').value  = e.dep;
+  document.getElementById('em-saq').value  = e.saq;
+  document.getElementById('em-bau').value  = e.bau;
+  document.getElementById('em-obs').value  = e.obs || '';
+  openModal('editModal');
+}
+
+function saveEditEntry() {
+  const id   = parseInt(document.getElementById('em-id').value);
+  const date = document.getElementById('em-date').value;
+  const plat = (document.getElementById('em-plat').value || '').trim();
+  const dep  = parseFloat(document.getElementById('em-dep').value) || 0;
+  const saq  = parseFloat(document.getElementById('em-saq').value) || 0;
+  const bau  = parseFloat(document.getElementById('em-bau').value) || 0;
+  const obs  = document.getElementById('em-obs').value.trim();
+  if (!plat) { toast('Plataforma nao pode ser vazia!', 'err'); return; }
+  const db = getDB();
+  const u  = db.users.find(x => x.id === currentUser); if (!u) return;
+  const idx = u.entries.findIndex(x => x.id === id);
+  if (idx === -1) { toast('Ciclo nao encontrado!', 'err'); return; }
+  u.entries[idx] = { ...u.entries[idx], date, plat, dep, saq, bau, obs };
+  if (!u.platforms.includes(plat)) u.platforms.push(plat);
+  saveDB(db);
+  closeModal('editModal');
+  renderPlatforms();
+  toast('Ciclo atualizado!');
+  render();
+}
+
+// ══════════════════════════════════════════════════
+// META MENSAL
+// ══════════════════════════════════════════════════
+function getUserMeta() {
+  const u = getUser(currentUser); if (!u) return 0;
+  return u.metaMensal || 0;
+}
+
+function openMetaModal() {
+  document.getElementById('metaInput').value = getUserMeta() || '';
+  openModal('metaModal');
+}
+
+function saveMeta() {
+  const val = parseFloat(document.getElementById('metaInput').value) || 0;
+  const db  = getDB();
+  const u   = db.users.find(x => x.id === currentUser); if (!u) return;
+  u.metaMensal = val;
+  saveDB(db);
+  closeModal('metaModal');
+  toast('Meta salva!');
+  render();
+}
+
+function updateMetaBar(lucroMes) {
+  const meta = getUserMeta();
+  const pct  = meta > 0 ? Math.min(100, (lucroMes / meta) * 100) : 0;
+  const bar  = document.getElementById('metaBar');
+  const pctEl = document.getElementById('v-meta-pct');
+  const subEl = document.getElementById('v-meta-sub');
+  const atualEl = document.getElementById('v-meta-atual');
+  const goalEl  = document.getElementById('v-meta-goal');
+  if (!bar) return;
+  bar.style.width = pct.toFixed(1) + '%';
+  bar.className   = 'meta-bar' + (pct >= 100 ? ' full' : '');
+  pctEl.textContent  = pct.toFixed(1) + '%';
+  subEl.textContent  = meta > 0 ? 'Meta: ' + fmt(meta) : 'Sem meta definida';
+  atualEl.textContent = fmt(lucroMes);
+  goalEl.textContent  = meta > 0 ? '/ ' + fmt(meta) : '';
+}
+
+// ══════════════════════════════════════════════════
+// MODAL
+// ══════════════════════════════════════════════════
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+
+// ══════════════════════════════════════════════════
+// CLOCK
+// ══════════════════════════════════════════════════
+function updateClock(){
+  const n=now(); const p=v=>String(v).padStart(2,'0');
+  document.getElementById('clock').textContent=`${p(n.getDate())}/${p(n.getMonth()+1)} ${p(n.getHours())}:${p(n.getMinutes())}`;
+}
+updateClock(); setInterval(updateClock,15000);
+
+// ══════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════
+document.getElementById('fData').value=today();
+
+// ── BOOT: wait for Firebase then load data ──
+async function boot() {
+  const loadMsg = document.getElementById('loadingMsg');
+  try {
+    // wait for firebase module to init
+    if (!window._fbReady) {
+      await new Promise(resolve => window.addEventListener('fbready', resolve, {once:true}));
+    }
+    if (loadMsg) loadMsg.textContent = 'Carregando dados...';
+    await loadDB();
+    if (loadMsg) loadMsg.textContent = 'Pronto!';
+    await new Promise(r => setTimeout(r, 400));
+    document.getElementById('loadingScreen').style.display = 'none';
+    renderLogin();
+    const sid = sessionStorage.getItem('qgdc_session');
+    if (sid && getUser(sid)) {
+      login(sid);
+    } else {
+      document.getElementById('loginScreen').style.display = 'flex';
+    }
+  } catch(e) {
+    console.error('Boot error:', e);
+    if (loadMsg) loadMsg.textContent = 'Erro ao conectar. Verifique sua conexão.';
+  }
+}
+boot();
+</script>
+</body>
+</html>
