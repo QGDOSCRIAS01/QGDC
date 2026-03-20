@@ -7,8 +7,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <!-- Firebase -->
 <script type="module">
-import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, onSnapshot }
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, getDocs, deleteDoc }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const _cfg = {
@@ -20,43 +20,114 @@ const _cfg = {
   appId:             "1:804073965332:web:6937a266a5da3b569b2401"
 };
 
-const _app = initializeApp(_cfg);
-const _fdb = getFirestore(_app);
-const _ref = doc(_fdb, 'qgdc', 'main');
+const _app  = initializeApp(_cfg);
+const _fdb  = getFirestore(_app);
 
-// Real-time listener — fires whenever ANY client writes to Firestore
-let _unsub = null;
-function startRealtimeSync() {
-  if (_unsub) _unsub(); // cancel previous
-  _unsub = onSnapshot(_ref, snap => {
-    if (!snap.exists()) return;
-    const fresh = snap.data().payload;
-    // Merge only if the local write is not in progress
-    if (!window._saving) {
-      window._localDB = fresh;
-      // re-render silently if app is active
-      if (window._APP && window._APP.currentUser) {
-        try { window._APP.onRemoteUpdate(); } catch(_){}
-      }
-    }
-  }, err => console.warn('Snapshot error:', err.code));
-}
+// Two collections:
+// - qgdc/roster  : list of users (login info, profile) — shared, small
+// - qgdc/data_<id> : each user's private data (entries, pix, platforms...)
+const _rosterRef = doc(_fdb, 'qgdc', 'roster');
+const _userRef   = uid => doc(_fdb, 'qgdc', 'data_' + uid);
+
+let _unsubRoster = null;
+let _unsubUser   = null;
 
 window._fb = {
+
+  // ── Load full DB on boot ──────────────────────────────────
   async loadDB() {
-    const snap = await getDoc(_ref);
-    return snap.exists() ? snap.data().payload : null;
+    // 1. Load roster (all users meta)
+    const rSnap = await getDoc(_rosterRef);
+    const roster = rSnap.exists() ? (rSnap.data().users || []) : [];
+
+    // 2. Load ALL user data docs in parallel
+    const userDocs = await Promise.all(
+      roster.map(u => getDoc(_userRef(u.id)))
+    );
+
+    // 3. Merge
+    const users = roster.map((u, i) => {
+      const d = userDocs[i].exists() ? userDocs[i].data() : {};
+      return { ...u, ...d };
+    });
+
+    return users.length ? { users, version: 2 } : null;
   },
-  async saveDB(data) {
-    window._saving = true;
+
+  // ── Save roster (user list / profile changes) ─────────────
+  async saveRoster(users) {
+    const roster = users.map(u => ({
+      id: u.id, name: u.name, pass: u.pass, role: u.role,
+      colorIdx: u.colorIdx || 0, theme: u.theme || 'dark',
+      photo: u.photo || null
+    }));
+    await setDoc(_rosterRef, { users: roster });
+  },
+
+  // ── Save ONE user's private data ─────────────────────────
+  async saveUserData(uid, data) {
+    await setDoc(_userRef(uid), data);
+  },
+
+  // ── Real-time: listen to roster changes ──────────────────
+  startRosterSync(onUpdate) {
+    if (_unsubRoster) _unsubRoster();
+    _unsubRoster = onSnapshot(_rosterRef, snap => {
+      if (!snap.exists()) return;
+      const freshRoster = snap.data().users || [];
+      // Update only profile fields in localDB, never touch entries
+      const db = window._localDB;
+      if (!db) return;
+      freshRoster.forEach(fu => {
+        const u = (db.users || []).find(x => x.id === fu.id);
+        if (u) {
+          u.name = fu.name; u.role = fu.role;
+          u.colorIdx = fu.colorIdx; u.theme = fu.theme;
+          u.photo = fu.photo;
+        } else {
+          db.users.push({ ...fu, entries: [], platforms: [], pixBanks: [], pixCnpjBanks: [] });
+        }
+      });
+      if (onUpdate) onUpdate();
+    }, err => console.warn('Roster sync error:', err.code));
+  },
+
+  // ── Real-time: listen to current user's data changes ─────
+  startUserSync(uid, onUpdate) {
+    if (_unsubUser) _unsubUser();
+    _unsubUser = onSnapshot(_userRef(uid), snap => {
+      if (!snap.exists()) return;
+      const fresh = snap.data();
+      const db    = window._localDB;
+      if (!db || window._saving) return;
+      const u = (db.users || []).find(x => x.id === uid);
+      if (u) {
+        // Only update private data fields — never overwrite during a save
+        if (fresh.entries   !== undefined) u.entries   = fresh.entries;
+        if (fresh.platforms !== undefined) u.platforms = fresh.platforms;
+        if (fresh.pixBanks  !== undefined) u.pixBanks  = fresh.pixBanks;
+        if (fresh.pixCnpjBanks !== undefined) u.pixCnpjBanks = fresh.pixCnpjBanks;
+        if (fresh.metaMensal   !== undefined) u.metaMensal   = fresh.metaMensal;
+      }
+      if (onUpdate) onUpdate();
+    }, err => console.warn('User sync error:', err.code));
+  },
+
+  stopSync() {
+    if (_unsubRoster) { _unsubRoster(); _unsubRoster = null; }
+    if (_unsubUser)   { _unsubUser();   _unsubUser   = null; }
+  },
+
+  // Delete a user's private data document from Firestore
+  async deleteUserDoc(uid) {
     try {
-      await setDoc(_ref, { payload: data });
-    } finally {
-      setTimeout(() => { window._saving = false; }, 800);
+      await deleteDoc(_userRef(uid));
+    } catch(e) {
+      console.warn('deleteUserDoc error:', e.code || e.message);
     }
-  },
-  startRealtimeSync
+  }
 };
+
 window._fbReady = true;
 window.dispatchEvent(new Event('fbready'));
 </script>
@@ -566,10 +637,12 @@ tr:hover td{background:rgba(255,255,255,.012)}
             <div class="frow"><label><span class="lc lc-b"></span>Depósito</label><input type="number" id="fDep" placeholder="0.00" min="0" step="0.01" oninput="prevCalc()"></div>
             <div class="frow"><label><span class="lc lc-r"></span>Saque</label><input type="number" id="fSaq" placeholder="0.00" min="0" step="0.01" oninput="prevCalc()"></div>
             <div class="frow"><label><span class="lc lc-o"></span>Baú</label><input type="number" id="fBau" placeholder="0.00" min="0" step="0.01" oninput="prevCalc()"></div>
+            <div class="frow"><label><span class="lc" style="background:#e74c3c"></span>Proxy</label><input type="number" id="fProxy" placeholder="0.00" min="0" step="0.01" oninput="prevCalc()"></div>
           </div>
           <div class="prev-box">
             <div class="prev-row"><span>Retorno (Saq+Baú)</span><span id="pRetorno">R$ 0,00</span></div>
             <div class="prev-row"><span>Investido</span><span id="pDep">−R$ 0,00</span></div>
+            <div class="prev-row" id="pProxyRow" style="display:none"><span>Proxy</span><span id="pProxy" style="color:var(--red)">−R$ 0,00</span></div>
             <div class="prev-row hl" id="pRow"><span>Lucro desta op.</span><span id="pLucro">R$ 0,00</span></div>
           </div>
           <div class="frow"><label>Observações</label><textarea id="fObs" placeholder="Notas opcionais..."></textarea></div>
@@ -637,7 +710,7 @@ tr:hover td{background:rgba(255,255,255,.012)}
           <div class="tw"><table>
             <thead><tr>
               <th>Data</th><th>Plataforma</th><th>Dep.</th><th>Saque</th><th>Baú</th>
-              <th>Retorno</th><th>Lucro</th><th>Ações</th>
+              <th>Proxy</th><th>Retorno</th><th>Lucro</th><th>Ações</th>
             </tr></thead>
             <tbody id="tBody"></tbody>
           </table></div>
@@ -922,8 +995,10 @@ tr:hover td{background:rgba(255,255,255,.012)}
         <input type="number" id="em-dep" step="0.01" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.9rem;outline:none"></div>
       <div class="frow"><label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:4px">Saque</label>
         <input type="number" id="em-saq" step="0.01" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.9rem;outline:none"></div>
-      <div class="frow" style="grid-column:span 2"><label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:4px">Baú</label>
+      <div class="frow"><label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:4px">Baú</label>
         <input type="number" id="em-bau" step="0.01" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.9rem;outline:none"></div>
+      <div class="frow"><label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:4px">Proxy</label>
+        <input type="number" id="em-proxy" step="0.01" placeholder="0.00" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.9rem;outline:none"></div>
       <div class="frow" style="grid-column:span 2"><label style="font-size:.62rem;color:var(--text3);letter-spacing:1.1px;text-transform:uppercase;font-family:'Rajdhani','IBM Plex Mono',monospace;display:block;margin-bottom:4px">Observações</label>
         <textarea id="em-obs" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--rs);padding:8px 11px;font-family:'Rajdhani','IBM Plex Mono',monospace;font-size:.9rem;outline:none;resize:vertical;min-height:52px"></textarea></div>
     </div>
@@ -983,17 +1058,18 @@ window._saving  = false;
 async function loadDB() {
   if (!window._fbReady) throw new Error('Firebase not ready');
   const data = await window._fb.loadDB();
-  if (data) {
+  if (data && data.users && data.users.length) {
     window._localDB = data;
   } else {
-    window._localDB = {
-      users: [{
-        id: 'admin', name: 'Admin', pass: 'admin123', role: 'admin',
-        colorIdx: 0, entries: [], platforms: ['Plataforma A','Plataforma B']
-      }],
-      version: 1
+    // First boot — create default admin
+    const defaultUser = {
+      id: 'admin', name: 'Admin', pass: 'admin123', role: 'admin',
+      colorIdx: 0, entries: [], platforms: ['Plataforma A','Plataforma B'],
+      pixBanks: [], pixCnpjBanks: []
     };
-    await window._fb.saveDB(window._localDB);
+    window._localDB = { users: [defaultUser], version: 2 };
+    await window._fb.saveRoster(window._localDB.users);
+    await _saveUserData(defaultUser.id, defaultUser);
   }
   return window._localDB;
 }
@@ -1002,9 +1078,55 @@ function getDB() {
   return window._localDB || { users: [] };
 }
 
+// ── Extract private user fields ───────────────────────────
+function _userDataFields(u) {
+  return {
+    entries:      u.entries      || [],
+    platforms:    u.platforms    || [],
+    pixBanks:     u.pixBanks     || [],
+    pixCnpjBanks: u.pixCnpjBanks || [],
+    metaMensal:   u.metaMensal   || 0
+  };
+}
+
+// ── Save ONLY user private data (entries, pix, etc.) ──────
+async function _saveUserData(uid, u) {
+  await window._fb.saveUserData(uid, _userDataFields(u));
+}
+
+// ── Save ALL: roster + current user private data ──────────
 function saveDB(data) {
   window._localDB = data;
-  window._fb.saveDB(data).catch(e => console.warn('Save failed:', e.code || e.message));
+  window._saving  = true;
+
+  const uid = AUTH && AUTH.userId ? AUTH.userId() : null;
+  const u   = uid ? data.users.find(x => x.id === uid) : null;
+
+  const jobs = [ window._fb.saveRoster(data.users) ];
+  if (u) jobs.push(_saveUserData(uid, u));
+
+  Promise.all(jobs)
+    .catch(e => console.warn('Save failed:', e.code || e.message))
+    .finally(() => { setTimeout(() => { window._saving = false; }, 500); });
+}
+
+// ── Save only profile (no entries) ────────────────────────
+function saveProfile_DB(data) {
+  window._localDB = data;
+  window._fb.saveRoster(data.users)
+    .catch(e => console.warn('Profile save failed:', e.code || e.message));
+}
+
+// ── Save only current user's data (entries, pix, etc.) ───
+function saveUserOnly(data) {
+  window._localDB = data;
+  window._saving  = true;
+  const uid = AUTH && AUTH.userId ? AUTH.userId() : null;
+  const u   = uid ? data.users.find(x => x.id === uid) : null;
+  if (!u) return;
+  _saveUserData(uid, u)
+    .catch(e => console.warn('User save failed:', e.code || e.message))
+    .finally(() => { setTimeout(() => { window._saving = false; }, 500); });
 }
 
 // ── AUTH MODULE ───────────────────────────────────────────
@@ -1222,6 +1344,9 @@ function doLogin() {
 function logout() {
   AUTH.logout();
   window._APP.currentUser = null;
+  window._fb.stopSync();
+  // Restart roster sync only
+  window._fb.startRosterSync(() => { try { renderLogin(); } catch(_) {} });
   document.getElementById('appRoot').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
   renderLogin();
@@ -1233,10 +1358,16 @@ function launchApp(u) {
   document.getElementById('appRoot').style.display     = 'block';
   const adminBtn = document.getElementById('adminNavBtn');
   if (adminBtn) adminBtn.style.display = u.role === 'admin' ? '' : 'none';
+  const extBtn = document.getElementById('extNavBtn');
+  if (extBtn) extBtn.style.display = ''; // visible for all users
   updateHeaderProfile();
   loadUserTheme();
   renderPlatforms();
   render();
+  // Start listening to THIS user's data changes only
+  window._fb.startUserSync(AUTH.userId(), () => {
+    try { render(); updateHeaderProfile(); } catch(_) {}
+  });
   const firstBtn = document.querySelector('.nav-btn');
   goView('dashboard', firstBtn);
 }
@@ -1376,7 +1507,7 @@ function addPlatform() {
     const db = getDB(); const u = db.users.find(x => x.id === AUTH.userId()); if (!u) return;
     if (!u.platforms) u.platforms = [];
     if (u.platforms.includes(name)) { toast('Plataforma ja existe.', 'warn'); return; }
-    u.platforms.push(name); saveDB(db); renderPlatforms(); if (inp) inp.value = '';
+    u.platforms.push(name); saveUserOnly(db); renderPlatforms(); if (inp) inp.value = '';
     toast('Plataforma adicionada!');
   });
 }
@@ -1384,7 +1515,7 @@ function removePlatform(name) {
   checkAuth(() => {
     const db = getDB(); const u = db.users.find(x => x.id === AUTH.userId()); if (!u) return;
     if ((u.entries || []).some(e => e.plat === name)) { toast('Em uso, nao pode excluir.', 'err'); return; }
-    u.platforms = (u.platforms || []).filter(p => p !== name); saveDB(db); renderPlatforms();
+    u.platforms = (u.platforms || []).filter(p => p !== name); saveUserOnly(db); renderPlatforms();
   });
 }
 function renderPlatforms() {
@@ -1400,14 +1531,17 @@ function renderPlatforms() {
 
 // ── PREVIEW CALC ──────────────────────────────────────────
 function prevCalc() {
-  const dep = parseFloat(document.getElementById('fDep').value) || 0;
-  const saq = parseFloat(document.getElementById('fSaq').value) || 0;
-  const bau = parseFloat(document.getElementById('fBau').value) || 0;
-  const luc = (saq + bau) - dep;
-  const pr  = document.getElementById('pRetorno'); if (pr) pr.textContent = fmt(saq + bau);
-  const pd  = document.getElementById('pDep');     if (pd) pd.textContent = '-' + fmt(dep);
-  const pl  = document.getElementById('pLucro');   if (pl) pl.textContent = fmt(luc);
-  const row = document.getElementById('pRow');     if (row) row.className = 'prev-row hl' + (luc < 0 ? ' neg' : '');
+  const dep   = parseFloat(document.getElementById('fDep').value)   || 0;
+  const saq   = parseFloat(document.getElementById('fSaq').value)   || 0;
+  const bau   = parseFloat(document.getElementById('fBau').value)   || 0;
+  const proxy = parseFloat(document.getElementById('fProxy').value) || 0;
+  const luc   = (saq + bau) - dep - proxy;
+  const pr = document.getElementById('pRetorno');  if (pr) pr.textContent = fmt(saq + bau);
+  const pd = document.getElementById('pDep');      if (pd) pd.textContent = '-' + fmt(dep);
+  const pp = document.getElementById('pProxy');    if (pp) pp.textContent = '-' + fmt(proxy);
+  const pr2= document.getElementById('pProxyRow'); if (pr2) pr2.style.display = proxy > 0 ? 'flex' : 'none';
+  const pl = document.getElementById('pLucro');    if (pl) pl.textContent = fmt(luc);
+  const row= document.getElementById('pRow');      if (row) row.className = 'prev-row hl' + (luc < 0 ? ' neg' : '');
 }
 
 // ── ADD ENTRY ─────────────────────────────────────────────
@@ -1415,18 +1549,19 @@ function addEntry() {
   checkAuth(() => {
     const date = document.getElementById('fData').value || today();
     const plat = san(document.getElementById('fPlat').value || '', 50);
-    const dep  = parseFloat(document.getElementById('fDep').value)  || 0;
-    const saq  = parseFloat(document.getElementById('fSaq').value)  || 0;
-    const bau  = parseFloat(document.getElementById('fBau').value)  || 0;
-    const obs  = san(document.getElementById('fObs').value || '', 200);
+    const dep   = parseFloat(document.getElementById('fDep').value)   || 0;
+    const saq   = parseFloat(document.getElementById('fSaq').value)   || 0;
+    const bau   = parseFloat(document.getElementById('fBau').value)   || 0;
+    const proxy = parseFloat(document.getElementById('fProxy').value) || 0;
+    const obs   = san(document.getElementById('fObs').value || '', 200);
     if (!plat) { toast('Digite o nome da plataforma!', 'err'); return; }
     const db = getDB(); const u = db.users.find(x => x.id === AUTH.userId()); if (!u) return;
     if (!u.platforms) u.platforms = [];
     if (!u.entries)   u.entries   = [];
     if (!u.platforms.includes(plat)) u.platforms.push(plat);
-    u.entries.push({ id: Date.now(), date, plat, dep, saq, bau, obs });
-    saveDB(db);
-    ['fDep','fSaq','fBau','fObs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    u.entries.push({ id: Date.now(), date, plat, dep, saq, bau, proxy, obs });
+    saveUserOnly(db);
+    ['fDep','fSaq','fBau','fProxy','fObs'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     const fp = document.getElementById('fPlat'); if (fp) fp.value = '';
     renderPlatforms(); prevCalc(); toast('Operacao registrada!'); render();
   });
@@ -1435,7 +1570,7 @@ function addEntry() {
 function deleteEntry(id) {
   checkAuth(() => {
     const db = getDB(); const u = db.users.find(x => x.id === AUTH.userId()); if (!u) return;
-    u.entries = (u.entries || []).filter(e => e.id !== id); saveDB(db); render();
+    u.entries = (u.entries || []).filter(e => e.id !== id); saveUserOnly(db); render();
   });
 }
 
@@ -1465,13 +1600,14 @@ function render() {
     tbody.innerHTML = `<tr><td colspan="8" class="empty-td"><div class="ei">📊</div><div class="et">Sem registros no periodo.</div></td></tr>`;
   } else {
     tbody.innerHTML = [...histEntries].reverse().map(e => {
-      const ret = e.saq + e.bau; const lc = ret - e.dep;
+      const prx = e.proxy||0; const ret = e.saq + e.bau; const lc = ret - e.dep - prx;
       return `<tr>
         <td class="vd">${e.date.split('-').reverse().join('/')}</td>
         <td><span class="ptag">${san(e.plat,40)}</span></td>
         <td class="vb">${e.dep ? fmt(e.dep) : '—'}</td>
         <td class="vr">${e.saq ? fmt(e.saq) : '—'}</td>
         <td class="vo">${e.bau ? fmt(e.bau) : '—'}</td>
+        <td class="vr" style="font-size:.75rem">${prx ? fmt(prx) : '—'}</td>
         <td class="vm">${fmt(ret)}</td>
         <td class="${lc>=0?'vg':'vr'}">${fmt(lc)}</td>
         <td style="display:flex;gap:4px;align-items:center">
@@ -1597,7 +1733,7 @@ function renderCiclos() {
     <div class="mr"><div class="mv vb">${fmt(me.reduce((s,e)=>s+e.dep,0))}</div><div class="ml">Depositos</div></div>
     <div class="mr"><div class="mv vr">${fmt(me.reduce((s,e)=>s+e.saq,0))}</div><div class="ml">Saques</div></div>
     <div class="mr"><div class="mv vo">${fmt(me.reduce((s,e)=>s+e.bau,0))}</div><div class="ml">Bau</div></div>
-    <div class="mr"><div class="mv ${me.reduce((s,e)=>s+(e.saq+e.bau-e.dep),0)>=0?'vg':'vr'}">${fmt(me.reduce((s,e)=>s+(e.saq+e.bau-e.dep),0))}</div><div class="ml">Lucro</div></div>
+    <div class="mr"><div class="mv ${me.reduce((s,e)=>s+(e.saq+e.bau-e.dep-(e.proxy||0)),0)>=0?'vg':'vr'}">${fmt(me.reduce((s,e)=>s+(e.saq+e.bau-e.dep-(e.proxy||0)),0))}</div><div class="ml">Lucro</div></div>
     <div class="mr"><div class="mv vm">${me.length}</div><div class="ml">Operacoes</div></div>`;
   const byDay = {};
   all.forEach(e => { if (!byDay[e.date]) byDay[e.date]=[]; byDay[e.date].push(e); });
@@ -1629,14 +1765,14 @@ function renderProfile() {
   const pfp= document.getElementById('pfPass'); if (pfp) pfp.value = '';
   const prev = document.getElementById('pfPhotoPreview'); if (prev) renderAvatar(u, prev, 72);
   const rb   = document.getElementById('pfRemoveBtn'); if (rb) rb.style.display = u.photo ? 'inline-flex' : 'none';
-  const luM  = (u.entries||[]).filter(e=>e.date.startsWith(today().slice(0,7))).reduce((s,e)=>s+(e.saq+e.bau-e.dep),0);
-  const luC  = (u.entries||[]).reduce((s,e)=>s+(e.saq+e.bau-e.dep),0);
+  const luM  = (u.entries||[]).filter(e=>e.date.startsWith(today().slice(0,7))).reduce((s,e)=>s+(e.saq+e.bau-e.dep-(e.proxy||0)),0);
+  const luC  = (u.entries||[]).reduce((s,e)=>s+(e.saq+e.bau-e.dep-(e.proxy||0)),0);
   const sc   = document.getElementById('ps-ciclo'); if (sc) sc.textContent = fmt(luC);
   const sm   = document.getElementById('ps-mes');   if (sm) sm.textContent = fmt(luM);
   const so   = document.getElementById('ps-ops');   if (so) so.textContent = (u.entries||[]).length;
   renderThemePicker(u.theme || 'dark');
   buildColorPicker('colorPicker', u.colorIdx||0, idx => {
-    checkAuth(() => { const db=getDB(); const u2=db.users.find(x=>x.id===AUTH.userId()); if(u2){u2.colorIdx=idx;saveDB(db);updateHeaderProfile();renderProfile();} });
+    checkAuth(() => { const db=getDB(); const u2=db.users.find(x=>x.id===AUTH.userId()); if(u2){u2.colorIdx=idx;saveProfile_DB(db);updateHeaderProfile();renderProfile();} });
   });
 }
 
@@ -1663,7 +1799,7 @@ function saveProfile() {
     if (!name) { toast('Nome nao pode ser vazio.', 'err'); return; }
     const db = getDB(); const u = db.users.find(x => x.id === AUTH.userId()); if (!u) return;
     u.name = name; if (pass) u.pass = pass;
-    saveDB(db); updateHeaderProfile(); toast('Perfil atualizado!'); renderProfile();
+    saveProfile_DB(db); updateHeaderProfile(); toast('Perfil atualizado!'); renderProfile();
   });
 }
 
@@ -1679,7 +1815,7 @@ function handlePhotoUpload(input) {
         if (w > max || h > max) { if (w > h) { h=Math.round(h*max/w); w=max; } else { w=Math.round(w*max/h); h=max; } }
         canvas.width=w; canvas.height=h; canvas.getContext('2d').drawImage(img,0,0,w,h);
         const db=getDB(); const u=db.users.find(x=>x.id===AUTH.userId()); if(!u) return;
-        u.photo=canvas.toDataURL('image/jpeg',0.82); saveDB(db); updateHeaderProfile(); renderProfile(); toast('Foto atualizada!');
+        u.photo=canvas.toDataURL('image/jpeg',0.82); saveProfile_DB(db); updateHeaderProfile(); renderProfile(); toast('Foto atualizada!');
       };
       img.src = e.target.result;
     };
@@ -1690,7 +1826,7 @@ function handlePhotoUpload(input) {
 function removePhoto() {
   checkAuth(() => {
     const db=getDB(); const u=db.users.find(x=>x.id===AUTH.userId()); if(!u) return;
-    delete u.photo; saveDB(db); updateHeaderProfile(); renderProfile(); toast('Foto removida.','warn');
+    delete u.photo; saveProfile_DB(db); updateHeaderProfile(); renderProfile(); toast('Foto removida.','warn');
   });
 }
 
@@ -1701,7 +1837,7 @@ function openEditModal(id) {
     const e = (u.entries||[]).find(x => x.id === id); if (!e) return;
     const set = (eid, v) => { const el=document.getElementById(eid); if(el) el.value=v; };
     set('em-id', id); set('em-date', e.date); set('em-plat', e.plat);
-    set('em-dep', e.dep); set('em-saq', e.saq); set('em-bau', e.bau); set('em-obs', e.obs||'');
+    set('em-dep', e.dep); set('em-saq', e.saq); set('em-bau', e.bau); set('em-proxy', e.proxy||0); set('em-obs', e.obs||'');
     openModal('editModal');
   });
 }
@@ -1710,16 +1846,17 @@ function saveEditEntry() {
     const id   = parseInt(document.getElementById('em-id').value);
     const date = document.getElementById('em-date').value;
     const plat = san(document.getElementById('em-plat').value||'', 50);
-    const dep  = parseFloat(document.getElementById('em-dep').value)||0;
-    const saq  = parseFloat(document.getElementById('em-saq').value)||0;
-    const bau  = parseFloat(document.getElementById('em-bau').value)||0;
-    const obs  = san(document.getElementById('em-obs').value||'', 200);
+    const dep   = parseFloat(document.getElementById('em-dep').value)||0;
+    const saq   = parseFloat(document.getElementById('em-saq').value)||0;
+    const bau   = parseFloat(document.getElementById('em-bau').value)||0;
+    const proxy = parseFloat(document.getElementById('em-proxy').value)||0;
+    const obs   = san(document.getElementById('em-obs').value||'', 200);
     if (!plat) { toast('Plataforma nao pode ser vazia!','err'); return; }
     const db=getDB(); const u=db.users.find(x=>x.id===AUTH.userId()); if(!u) return;
     const idx=(u.entries||[]).findIndex(x=>x.id===id); if(idx===-1) return;
-    u.entries[idx]={...u.entries[idx],date,plat,dep,saq,bau,obs};
+    u.entries[idx]={...u.entries[idx],date,plat,dep,saq,bau,proxy,obs};
     if(!u.platforms.includes(plat)) u.platforms.push(plat);
-    saveDB(db); closeModal('editModal'); renderPlatforms(); toast('Ciclo atualizado!'); render();
+    saveUserOnly(db); closeModal('editModal'); renderPlatforms(); toast('Ciclo atualizado!'); render();
   });
 }
 
@@ -1730,7 +1867,7 @@ function saveMeta() {
   checkAuth(() => {
     const val=parseFloat(document.getElementById('metaInput').value)||0;
     const db=getDB(); const u=db.users.find(x=>x.id===AUTH.userId()); if(!u) return;
-    u.metaMensal=val; saveDB(db); closeModal('metaModal'); toast('Meta salva!'); render();
+    u.metaMensal=val; saveUserOnly(db); closeModal('metaModal'); toast('Meta salva!'); render();
   });
 }
 function updateMetaBar(lucroMes) {
@@ -1747,8 +1884,8 @@ function updateMetaBar(lucroMes) {
 function renderAdmin() {
   if (!AUTH.isAdmin()) return;
   const db=getDB(); const grid=document.getElementById('accountsGrid'); if(!grid) return;
-  const luM=(u)=>(u.entries||[]).filter(e=>e.date.startsWith(today().slice(0,7))).reduce((s,e)=>s+(e.saq+e.bau-e.dep),0);
-  const luC=(u)=>(u.entries||[]).reduce((s,e)=>s+(e.saq+e.bau-e.dep),0);
+  const luM=(u)=>(u.entries||[]).filter(e=>e.date.startsWith(today().slice(0,7))).reduce((s,e)=>s+(e.saq+e.bau-e.dep-(e.proxy||0)),0);
+  const luC=(u)=>(u.entries||[]).reduce((s,e)=>s+(e.saq+e.bau-e.dep-(e.proxy||0)),0);
   const cards=db.users.map(u=>{
     const isMe=u.id===AUTH.userId();
     return `<div class="acc-card" style="${isMe?'border-color:var(--accent)':''}">
@@ -1787,25 +1924,43 @@ function createAccount() {
   if (!name || !pass) { toast('Preencha nome e senha.','err'); return; }
   const db = getDB();
   if (db.users.some(u => u.name.toLowerCase()===name.toLowerCase())) { toast('Nome ja existe.','err'); return; }
-  db.users.push({ id:'u_'+Date.now(), name, pass, role, colorIdx:newAccColorIdx, entries:[], platforms:['Plataforma A','Plataforma B'] });
-  saveDB(db); newAccColorIdx=0; toast('Conta criada!'); renderAdmin(); renderLogin();
+  const newUid = 'u_'+Date.now();
+  const newU = { id:newUid, name, pass, role, colorIdx:newAccColorIdx, entries:[], platforms:['Plataforma A','Plataforma B'], pixBanks:[], pixCnpjBanks:[] };
+  db.users.push(newU);
+  window._localDB = db;
+  window._fb.saveRoster(db.users).catch(e=>console.warn(e));
+  _saveUserData(newUid, newU).catch(e=>console.warn(e));
+  newAccColorIdx=0; toast('Conta criada!'); renderAdmin(); renderLogin();
 }
 function deleteAccount(id) {
   if (!AUTH.isAdmin()) return;
   if (id === AUTH.userId()) { toast('Nao pode excluir sua propria conta.','err'); return; }
-  if (!confirm('Excluir esta conta e todos os dados?')) return;
-  const db=getDB(); db.users=db.users.filter(u=>u.id!==id); saveDB(db); toast('Conta excluida.','warn'); renderAdmin();
+  if (!confirm('Excluir esta conta e todos os dados?\n\nIsso apagará permanentemente todos os ciclos, chaves Pix e dados do usuário.')) return;
+  const db = getDB();
+  db.users  = db.users.filter(u => u.id !== id);
+  window._localDB = db;
+  // Remove from roster + delete private data doc in parallel
+  Promise.all([
+    window._fb.saveRoster(db.users),
+    window._fb.deleteUserDoc(id)
+  ]).then(() => {
+    toast('Conta e dados excluidos permanentemente.', 'warn');
+  }).catch(e => {
+    console.warn('Delete error:', e);
+    toast('Conta removida (dados podem precisar de limpeza manual).', 'warn');
+  });
+  renderAdmin();
 }
 function resetUserData(id) {
   if (!AUTH.isAdmin()) return;
   if (!confirm('Zerar todos os dados desta conta?')) return;
   const db=getDB(); const u=db.users.find(x=>x.id===id); if(!u) return;
-  u.entries=[]; saveDB(db); toast('Dados zerados.','warn'); renderAdmin(); if(id===AUTH.userId()) render();
+  u.entries=[]; window._localDB=db; _saveUserData(id, u).catch(e=>console.warn(e)); toast('Dados zerados.','warn'); renderAdmin(); if(id===AUTH.userId()) render();
 }
 
 // ── EXTENSOES ─────────────────────────────────────────────
 function getExtensoes() { return (getDB().extensoes || []); }
-function saveExtensoes(arr) { const db=getDB(); db.extensoes=arr; saveDB(db); }
+function saveExtensoes(arr) { const db=getDB(); db.extensoes=arr; window._localDB=db; window._fb.saveRoster(db.users).catch(e=>console.warn(e)); /* extensoes saved via roster fallback — ok for small data */ saveDB(db); }
 function addExtensao() {
   if (!AUTH.isAdmin()) { toast('Sem permissao.','err'); return; }
   const name=san((document.getElementById('ext-name')||{value:''}).value,40);
@@ -1842,8 +1997,8 @@ function renderExtensoes() {
 // ── PIX ───────────────────────────────────────────────────
 function getPixBanks()     { const u=getCurrentUser(); return u&&u.pixBanks    ?u.pixBanks    :[]; }
 function getPixCnpjBanks() { const u=getCurrentUser(); return u&&u.pixCnpjBanks?u.pixCnpjBanks:[]; }
-function savePixBanks(arr)     { checkAuth(()=>{ const db=getDB(); const u=db.users.find(x=>x.id===AUTH.userId()); if(!u) return; u.pixBanks=arr;     saveDB(db); }); }
-function savePixCnpjBanks(arr) { checkAuth(()=>{ const db=getDB(); const u=db.users.find(x=>x.id===AUTH.userId()); if(!u) return; u.pixCnpjBanks=arr; saveDB(db); }); }
+function savePixBanks(arr)     { checkAuth(()=>{ const db=getDB(); const u=db.users.find(x=>x.id===AUTH.userId()); if(!u) return; u.pixBanks=arr;     saveUserOnly(db); }); }
+function savePixCnpjBanks(arr) { checkAuth(()=>{ const db=getDB(); const u=db.users.find(x=>x.id===AUTH.userId()); if(!u) return; u.pixCnpjBanks=arr; saveUserOnly(db); }); }
 
 function addPixBank() {
   checkAuth(()=>{
@@ -1952,7 +2107,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (loadMsg) loadMsg.textContent = 'Carregando dados...';
       await loadDB();
       // Start real-time sync AFTER initial load
-      window._fb.startRealtimeSync();
+      // Roster sync: updates profile/role changes from other admin actions
+      window._fb.startRosterSync(() => {
+        try { updateHeaderProfile(); renderLogin(); } catch(_) {}
+      });
+      // User sync starts after login (see launchApp)
       if (loadMsg) loadMsg.textContent = 'Pronto!';
       await new Promise(r => setTimeout(r, 350));
       const ls = document.getElementById('loadingScreen');
